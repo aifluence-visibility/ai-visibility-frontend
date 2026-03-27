@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AreaChart,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -10,7 +8,6 @@ import {
   BarChart,
   Bar,
   Cell,
-  Legend,
 } from "recharts";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -151,11 +148,16 @@ function mapAnalyzeResponse(analysis, payload, mode) {
 
   const visibilityScore = Number(normalizedAnalysis.visibilityScore ?? 0);
   const totalMentions = Number(normalizedAnalysis.totalMentions ?? 0);
+  const competitorMentionTotal = topCompetitors.reduce(
+    (sum, item) => sum + Number(item.mentionCount || 0),
+    0
+  );
+  const responseCount = Math.max(analyzedResponses.length, totalPromptCount);
+  const sourceDomainCount = Object.keys(sourceCounter).length;
   const competitorPressureScore = Math.min(
     100,
     Math.round(
-      (topCompetitors.reduce((sum, item) => sum + item.mentionCount, 0) /
-        totalPromptCount) *
+      (competitorMentionTotal / totalPromptCount) *
         20
     )
   );
@@ -216,6 +218,11 @@ function mapAnalyzeResponse(analysis, payload, mode) {
     competitorPressureScore,
     visibilityScore,
     visibilityRiskScore,
+    totalMentions,
+    promptCount: totalPromptCount,
+    responseCount,
+    sourceDomainCount,
+    competitorMentionTotal,
     sourceDataMessage:
       topSources.length > 0
         ? ""
@@ -247,17 +254,13 @@ const defaultData = {
   competitorPressureScore: 0,
   visibilityScore: 0,
   visibilityRiskScore: 0,
+  totalMentions: 0,
+  promptCount: 0,
+  responseCount: 0,
+  sourceDomainCount: 0,
+  competitorMentionTotal: 0,
   sourceDataMessage: "",
 };
-
-const cardDefinitions = [
-  { label: "AI Visibility Score", valueKey: "score", suffix: "%" },
-  { label: "AI Reach", valueKey: "coverage", suffix: "%" },
-  { label: "Exposure Gain", valueKey: "potentialImpressionGain", suffix: "%" },
-  { label: "Efficiency", valueKey: "efficiency", suffix: "%" },
-  { label: "AI Signals Tracked", valueKey: "chainedAIInsights" },
-  { label: "Active Source Assets", valueKey: "sources" },
-];
 
 const generatePDFReport = async (
   data,
@@ -381,7 +384,6 @@ export default function AnalyticsDashboard({
   const [emailCaptured, setEmailCaptured] = useState(false);
   const [shareToast, setShareToast] = useState(false);
   const [shareToastText, setShareToastText] = useState("Done");
-  const [kpiAnimated, setKpiAnimated] = useState(false);
   const [hasAnalyzedOnce, setHasAnalyzedOnce] = useState(false);
   const [emailSubmitSuccess, setEmailSubmitSuccess] = useState(false);
   const [animatedHeroScore, setAnimatedHeroScore] = useState(0);
@@ -466,7 +468,6 @@ export default function AnalyticsDashboard({
     setLoading(true);
     setError("");
     setMessage("");
-    setKpiAnimated(false);
     setShowPostScoreSections(false);
     setIsScorePulsing(false);
     const loadingStartedAt = Date.now();
@@ -572,7 +573,6 @@ export default function AnalyticsDashboard({
       );
 
       setMessage(`Loaded ${mode} analysis successfully.`);
-      setTimeout(() => setKpiAnimated(true), 100);
       setTimeout(() => setShowPostScoreSections(true), 520);
       setTimeout(() => setMessage(""), 2000);
       if (!emailCaptured && !emailCaptureShownRef.current) {
@@ -708,19 +708,19 @@ export default function AnalyticsDashboard({
   const heroSubtext = useMemo(() => {
     if (!hasAnalyzedOnce) return "Millions of buying decisions now start with an AI answer. Find out if your brand is part of that answer.";
     if (visibilityScoreValue < 30)
-      return `Your brand appears in only ${visibilityScoreValue}% of AI-generated answers.`;
+      return "You are losing visibility to competitors in AI search.";
     if (visibilityScoreValue <= 70)
-      return `Your brand appears in ${visibilityScoreValue}% of AI-generated answers — inconsistently.`;
-    return `Your brand appears in ${visibilityScoreValue}% of AI-generated answers. You're ahead.`;
+      return "You are losing visibility to competitors in AI search.";
+    return "Competitors are actively contesting your visibility in AI search.";
   }, [hasAnalyzedOnce, visibilityScoreValue]);
 
   const heroConsequence = useMemo(() => {
     if (!hasAnalyzedOnce) return null;
     if (visibilityScoreValue < 30)
-      return "If this continues, competitors will capture your demand.";
+      return "You are missing a significant portion of demand in your category.";
     if (visibilityScoreValue <= 70)
-      return "Competitors are picking up the share you're leaving behind.";
-    return "Keep publishing — consistency is what compounds AI visibility.";
+      return "You are missing a significant portion of demand in your category.";
+    return "Protect your lead now or competitors will capture high-value demand.";
   }, [hasAnalyzedOnce, visibilityScoreValue]);
 
   const riskScore = useMemo(
@@ -744,24 +744,6 @@ export default function AnalyticsDashboard({
     return "Low";
   }, [visibilityScoreValue]);
 
-  const sourceConfidenceText = useMemo(() => {
-    const level = (data.sourceConfidence || "low").toLowerCase();
-    if (level === "high") return "Source confidence: High";
-    if (level === "medium") return "Source confidence: Medium";
-    return "Source confidence: Low";
-  }, [data.sourceConfidence]);
-
-  const hasWeakSignals = useMemo(
-    () => (!data.topCompetitors || data.topCompetitors.length === 0) && (!data.topSources || data.topSources.length === 0),
-    [data.topCompetitors, data.topSources]
-  );
-
-  const hasTrustworthySourceSignals = useMemo(() => {
-    const confidence = (data.sourceConfidence || "low").toLowerCase();
-    const sourceCount = Array.isArray(data.topSources) ? data.topSources.length : 0;
-    return sourceCount >= 2 && (confidence === "medium" || confidence === "high");
-  }, [data.topSources, data.sourceConfidence]);
-
   const conciseInsight = useMemo(() => {
     const base = (data.summaryInsight || data.biggestWeakness || "").replace(/\s+/g, " ").trim();
     if (!base) {
@@ -783,8 +765,14 @@ export default function AnalyticsDashboard({
   }, [data.summaryInsight, data.biggestWeakness]);
 
   const displayedTopCompetitors = useMemo(() => {
-    const list = Array.isArray(data.topCompetitors) ? data.topCompetitors : [];
-    return isQuickMode ? list.slice(0, 3) : list;
+    const list = Array.isArray(data.topCompetitors) ? [...data.topCompetitors] : [];
+    const sorted = list.sort((a, b) => {
+      const aRate = Number(a?.appearanceRate ?? 0);
+      const bRate = Number(b?.appearanceRate ?? 0);
+      if (aRate !== bRate) return bRate - aRate;
+      return Number(b?.mentionCount ?? 0) - Number(a?.mentionCount ?? 0);
+    });
+    return isQuickMode ? sorted.slice(0, 3) : sorted.slice(0, 5);
   }, [data.topCompetitors, isQuickMode]);
 
   const hiddenCompetitorCount = useMemo(() => {
@@ -792,66 +780,18 @@ export default function AnalyticsDashboard({
     return Math.max(0, fullCount - displayedTopCompetitors.length);
   }, [data.topCompetitors, displayedTopCompetitors.length]);
 
-  const actionPlan = useMemo(() => {
-    const topCompetitor = displayedTopCompetitors[0]?.name || "competitors";
-    const weakness = data.biggestWeakness || "Low visibility in high-intent AI prompts.";
-    const sourceGap = hasTrustworthySourceSignals
-      ? "Source presence is improving but still uneven across channels."
-      : "Source credibility is weak in AI-cited channels.";
-
-    return [
-      {
-        problem: weakness,
-        recommendation: `Publish comparison and alternative pages targeting ${topCompetitor} and adjacent buyer intent.` ,
-        impact: "Expected impact: +10-20 visibility points in high-intent prompts within 4-8 weeks.",
-      },
-      {
-        problem: sourceGap,
-        recommendation: "Create citation-ready assets: benchmark pages, FAQs, and evidence-backed feature pages.",
-        impact: "Expected impact: stronger source trust and more consistent AI recommendations.",
-      },
-      {
-        problem: "Conversion narrative is not clearly differentiated in AI summaries.",
-        recommendation: "Define 3 core brand claims and repeat them consistently in homepage, docs, and comparison content.",
-        impact: "Expected impact: better recommendation quality and reduced competitor substitution.",
-      },
-    ];
-  }, [data.biggestWeakness, displayedTopCompetitors, hasTrustworthySourceSignals]);
-
-  const topSummary = useMemo(() => {
-    const topCompetitor = displayedTopCompetitors[0]?.name;
-    const mainProblem = data.biggestWeakness || "Your brand appears inconsistently in AI answers.";
-    const opportunity = topCompetitor
-      ? `Opportunity: Build direct comparison pages against ${topCompetitor}.`
-      : "Opportunity: Expand high-intent prompt coverage to gain recommendation share.";
-    const nextAction = isQuickMode
-      ? "Next action: Unlock Full Analysis to reveal complete competitor and source intelligence."
-      : "Next action: Execute the action plan and track visibility weekly.";
-    const sentence = visibilityScoreValue < 50
-      ? `AI recommendation momentum is currently against ${brandName || "your brand"}, but recoverable with focused execution.`
-      : `${brandName || "Your brand"} has measurable AI visibility momentum, with clear opportunities to widen the lead.`;
-
-    return {
-      sentence,
-      bullets: [mainProblem, opportunity, nextAction],
-    };
-  }, [brandName, data.biggestWeakness, displayedTopCompetitors, isQuickMode, visibilityScoreValue]);
-
   const competitorChartData = useMemo(() => {
-    const brandScore = hasAnalyzedOnce ? Math.max(5, Math.round(visibilityScoreValue)) : 0;
+    const promptCount = Math.max(1, Number(data.promptCount || 0));
+    const brandRate = Number(data.totalMentions || 0)
+      ? Math.round((Number(data.totalMentions || 0) / promptCount) * 100)
+      : Math.round(visibilityScoreValue);
     const brandEntry = {
       name: (brandName || "Your Brand").slice(0, 14),
-      appearanceRate: brandScore,
+      appearanceRate: hasAnalyzedOnce ? Math.max(0, Math.min(100, brandRate)) : 0,
       isAnalyzedBrand: true,
     };
-    // Give each competitor a distinct, realistic value above the brand score
-    const baseSteps = [28, 20, 13, 9, 6];
-    const competitors = displayedTopCompetitors.map((c, idx) => {
-      const rawRate = c.appearanceRate ?? 0;
-      // If API gave us real values spread across competitors, respect them.
-      // Otherwise synthesise descending values that look like a real market.
-      const synthesized = Math.min(99, brandScore + (baseSteps[idx] ?? 5));
-      const finalRate = rawRate > 5 && rawRate !== brandScore ? rawRate : synthesized;
+    const competitors = displayedTopCompetitors.slice(0, 5).map((c) => {
+      const finalRate = Math.max(0, Math.min(100, Number(c.appearanceRate || 0)));
       return {
         name: (c.name || "Competitor").slice(0, 14),
         appearanceRate: finalRate,
@@ -859,7 +799,48 @@ export default function AnalyticsDashboard({
       };
     });
     return [brandEntry, ...competitors];
-  }, [brandName, hasAnalyzedOnce, visibilityScoreValue, displayedTopCompetitors]);
+  }, [brandName, data.promptCount, data.totalMentions, displayedTopCompetitors, hasAnalyzedOnce, visibilityScoreValue]);
+
+  const promptCountValue = Math.max(0, Number(data.promptCount || 0));
+  const responseCountValue = Math.max(0, Number(data.responseCount || 0));
+  const sourceDomainCountValue = Math.max(0, Number(data.sourceDomainCount || 0));
+  const competitorMentionTotalValue = Math.max(0, Number(data.competitorMentionTotal || 0));
+
+  const displayedCompetitors = displayedTopCompetitors;
+
+  const topCompetitorName = displayedCompetitors[0]?.name || "No clear leader";
+
+  const prioritizedActions = useMemo(() => {
+    const topCompetitor = displayedCompetitors[0]?.name || "top competitors";
+    return [
+      `Create competitor comparison pages immediately vs ${topCompetitor} to capture lost demand`,
+      "Publish pages targeting high-volume buyer queries now to reclaim visibility",
+      "Secure mentions in trusted domains AI cites to stop competitor dominance",
+    ];
+  }, [displayedCompetitors]);
+
+  const whatThisMeansLead = useMemo(() => {
+    if (!displayedCompetitors.length) {
+      return "Your AI visibility is currently weak and inconsistent across buying queries.";
+    }
+    return `${brandName || "Your brand"} is losing recommendation share to ${displayedCompetitors[0].name} in key comparison queries.`;
+  }, [brandName, displayedCompetitors]);
+
+  const estimatedMissedDemand = Math.max(0, Math.min(100, Math.round(100 - visibilityScoreValue)));
+
+  const confidenceSummary = useMemo(() => {
+    if (responseCountValue >= 5 && sourceDomainCountValue >= 3) {
+      return "Confidence: High";
+    }
+    if (responseCountValue >= 2) {
+      return "Confidence: Medium (limited dataset)";
+    }
+    return "Confidence: Low (very limited dataset)";
+  }, [responseCountValue, sourceDomainCountValue]);
+
+  const methodologyText = useMemo(() => {
+    return `Score is based on relative visibility vs competitors using ${responseCountValue || promptCountValue || 0} AI responses, ${competitorMentionTotalValue} competitor mentions, and ${sourceDomainCountValue} source domains`;
+  }, [competitorMentionTotalValue, promptCountValue, responseCountValue, sourceDomainCountValue]);
 
   useEffect(() => {
     const target = Math.max(0, Math.min(100, Math.round(visibilityScoreValue)));
@@ -879,321 +860,188 @@ export default function AnalyticsDashboard({
     return () => clearInterval(timer);
   }, [visibilityScoreValue]);
 
-  const scoreTrend = useMemo(() => {
-    const prev = data.prevScore;
-    const curr = data.score;
-
-    if (prev === undefined || prev === null) {
-      return { changeText: "No trend data" };
-    }
-
-    const diff = curr - prev;
-    const direction = diff > 0 ? "↑" : diff < 0 ? "↓" : "→";
-    return { changeText: `${prev} → ${curr} ${direction}` };
-  }, [data]);
-
   return (
     <div className="min-h-screen bg-[#0B0F1A] text-[#E5E7EB] p-5 md:p-8">
-      <div className="mx-auto max-w-[1500px] space-y-5">
-        <div className={`rounded-2xl bg-gradient-to-r ${heroGradient} p-8 text-white shadow-[0_0_45px_rgba(59,130,246,0.35)] relative overflow-hidden transition-all duration-500`}>
-          <div className="absolute inset-0 bg-[#020617]/35"></div>
-          <div className="relative z-10">
-            <div className="mb-4">
-              <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-white/15 text-white border border-white/25 uppercase tracking-wide ${hasAnalyzedOnce && visibilityScoreValue < 30 ? "bg-red-500/30 border-red-300/40" : ""}`}>
-                {hasAnalyzedOnce ? "AI Visibility Report" : "⚡ AI Visibility Scanner"}
-              </span>
-            </div>
-
-            <h1 className="text-3xl md:text-5xl font-extrabold mb-3 leading-tight">
-              {heroHeadline}
-            </h1>
-
-            <p className="text-xl font-medium mb-3 opacity-95">
-              {heroSubtext}
-            </p>
-
-            {heroConsequence ? (
-              <p className={`mb-6 text-base font-semibold ${visibilityScoreValue < 30 ? "text-red-200" : visibilityScoreValue <= 70 ? "text-amber-200" : "text-emerald-200"}`}>
-                {heroConsequence}
-              </p>
-            ) : (
-              <p className="mb-6 text-sm text-white/70">Enter your brand below to run a free analysis.</p>
-            )}
-
-            {hasAnalyzedOnce ? (
-              <div className="mb-6 flex flex-wrap items-end gap-6">
-                <div>
-                  <p className="text-xs font-semibold text-white/60 uppercase tracking-wide mb-1">AI Visibility Score</p>
-                  <p
-                    className={`text-6xl font-extrabold tracking-tight transition-all duration-300 ${
-                      isScorePulsing
-                        ? "scale-110 drop-shadow-[0_0_20px_rgba(255,255,255,0.9)]"
-                        : "scale-100"
-                    }`}
-                  >
-                    {animatedHeroScore}<span className="text-2xl font-bold opacity-60">/100</span>
-                  </p>
-                </div>
-                <div className="pb-2">
-                  <p className="text-xs font-semibold text-white/60 uppercase tracking-wide mb-1">Visibility Risk</p>
-                  <span className={`inline-flex items-center rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-base font-bold text-white`}>
-                    {riskScore}/100
-                    <span className={`ml-2 text-sm font-semibold ${riskScore >= 70 ? "text-red-300" : riskScore >= 30 ? "text-amber-300" : "text-emerald-300"}`}>
-                      — {riskLabel} Risk
-                    </span>
-                  </span>
-                </div>
-              </div>
-            ) : null}
-
-            <button
-              onClick={() => setPremiumModalOpen(true)}
-              className="rounded-xl bg-white px-8 py-4 text-base font-bold text-indigo-700 shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all duration-300"
-            >
-              {isQuickMode ? "🔒 Unlock Full Analysis" : "Optimize My Visibility"}
-            </button>
-                  <div className={`rounded-2xl bg-gradient-to-r ${heroGradient} p-8 text-white shadow-[0_0_45px_rgba(59,130,246,0.35)] relative overflow-hidden transition-all duration-500`}>
-                    <div className="absolute inset-0 bg-[#020617]/40"></div>
-                    <div className="relative z-10">
-                      <div className="mb-4">
-                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-white/15 text-white border border-white/25 uppercase tracking-wide">
-                          {hasAnalyzedOnce ? "AI Visibility Report" : "⚡ AI Visibility Scanner"}
-                        </span>
-                      </div>
-
-                      <h1 className="text-3xl md:text-5xl font-extrabold mb-3 leading-tight">
-                        {heroHeadline}
-                      </h1>
-
-                      <p className="text-xl font-medium mb-3 opacity-95">
-                        {heroSubtext}
-                      </p>
-
-                      {heroConsequence ? (
-                        <p className={`mb-6 text-base font-semibold ${visibilityScoreValue < 30 ? "text-red-200" : visibilityScoreValue <= 70 ? "text-amber-200" : "text-emerald-200"}`}>
-                          {heroConsequence}
-                        </p>
-                      ) : (
-                        <p className="mb-6 text-sm text-white/70">Enter your brand name below to run your first analysis.</p>
-                      )}
-
-                      {hasAnalyzedOnce ? (
-                        <div className="mb-6 flex flex-wrap items-end gap-6">
-                          <div>
-                            <p className="text-xs font-semibold text-white/60 uppercase tracking-wide mb-1">AI Visibility Score</p>
-                            <p
-                              className={`text-6xl font-extrabold tracking-tight transition-all duration-300 ${
-                                isScorePulsing
-                                  ? "scale-110 drop-shadow-[0_0_20px_rgba(255,255,255,0.9)]"
-                                  : "scale-100"
-                              }`}
-                            >
-                              {animatedHeroScore}<span className="text-2xl font-bold opacity-60">/100</span>
-                            </p>
-                          </div>
-                          <div className="pb-2">
-                            <p className="text-xs font-semibold text-white/60 uppercase tracking-wide mb-1">Visibility Risk</p>
-                            <span className="inline-flex items-center rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-base font-bold text-white">
-                              {riskScore}/100
-                              <span className={`ml-2 text-sm font-semibold ${riskScore >= 70 ? "text-red-300" : riskScore >= 30 ? "text-amber-300" : "text-emerald-300"}`}>
-                                — {riskLabel} Risk
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                      ) : null}
-
-                      <button
-                        onClick={() => setPremiumModalOpen(true)}
-                        className="rounded-xl bg-white px-8 py-4 text-base font-bold text-indigo-700 shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all duration-300"
-                      >
-                        {isQuickMode ? "🔒 Unlock Full Analysis" : "Optimize My Visibility"}
-                      </button>
-                    </div>
-                  </div>
-          </div>
-        </div>
-
-        {hasAnalyzedOnce ? (
-          <section className="rounded-2xl border border-slate-800 bg-[#111827] p-5 shadow-sm transition-all duration-500">
-            <p className="text-lg font-bold text-white">{topSummary.sentence}</p>
-            <ul className="mt-3 space-y-1 text-sm text-slate-300">
-              {topSummary.bullets.map((item, idx) => (
-                <li key={idx}>• {item}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <section className="rounded-2xl border border-slate-800 bg-[#111827] p-4 shadow-[0_0_28px_rgba(17,24,39,0.9)]">
-          <div className="grid gap-3 md:grid-cols-5">
-            <input
-              value={brandName}
-              onChange={(e) => setBrandName(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2"
-              placeholder="Brand name"
-            />
-            <div className="flex flex-col">
-              <select
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-2"
-              >
-                <option value="">Auto-detect industry</option>
-                <option value="fintech">Fintech</option>
-                <option value="ecommerce">E-commerce</option>
-                <option value="saas">SaaS</option>
-                <option value="ai">AI Tools</option>
-                <option value="real estate">Real Estate</option>
-                <option value="education">Education</option>
-                <option value="healthcare">Healthcare</option>
-                <option value="travel">Travel</option>
-                <option value="hospitality">Hospitality</option>
-                <option value="marketplace">Marketplace</option>
-                <option value="crypto">Crypto</option>
-                <option value="logistics">Logistics</option>
-                <option value="other">Other</option>
-                <option value="custom">Custom industry…</option>
-              </select>
-              {industry === "custom" && (
-                <input
-                  value={customIndustry}
-                  onChange={(e) => setCustomIndustry(e.target.value)}
-                  className="mt-2 rounded-lg border border-slate-300 px-3 py-2"
-                  placeholder="Type your industry"
-                />
-              )}
-            </div>
-            <select
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2"
-            >
-              <option value="Global">Global</option>
-              <option value="USA">USA</option>
-              <option value="UK">UK</option>
-              <option value="Germany">Germany</option>
-              <option value="Turkey">Turkey</option>
-              <option value="UAE">UAE</option>
-              <option value="India">India</option>
-              <option value="Saudi Arabia">Saudi Arabia</option>
-              <option value="Singapore">Singapore</option>
-              <option value="Netherlands">Netherlands</option>
-              <option value="France">France</option>
-              <option value="Canada">Canada</option>
-              <option value="Australia">Australia</option>
-            </select>
-            <div className="flex rounded-lg border border-slate-300 p-1">
-              {["quick", "full"].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={`flex-1 px-3 py-2 text-sm font-medium transition ${
-                    mode === m
-                      ? "bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#22C55E] text-white"
-                      : "bg-[#0B0F1A] text-slate-300"
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={fetchAnalysis}
-              disabled={loading}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-                loading
-                  ? "bg-slate-700 text-slate-400"
-                  : "bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#22C55E] text-white hover:opacity-95"
-              }`}
-            >
-              {loading ? "Fetching..." : "Run Analysis"}
-            </button>
-          </div>
-        </section>
-
-        <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            {typeof onBackToLanding === "function" ? (
-              <button
-                onClick={onBackToLanding}
-                className="mb-3 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-              >
-                Back to Home
-              </button>
-            ) : null}
-            <h2 className="text-2xl font-bold text-white">AI Visibility Insights</h2>
-            <p className="text-sm text-slate-300">
-              Quick overview of AI market share, urgency, and actionable next
-              steps.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-200">AI-generated insights</span>
-              <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-200">Data-driven analysis</span>
-              <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-200">Updated in real-time</span>
-                        <h2 className="text-2xl font-bold text-white">AI Visibility Dashboard</h2>
-                        <p className="text-sm text-slate-400">
-                          {brandName ? `Showing AI visibility data for ${brandName}` : "Run an analysis to see your AI visibility data"}
-                          {data.industry ? ` · ${data.industry}` : ""}
-                          {data.country && data.country !== "Global" ? ` · ${data.country}` : ""}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                          <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">Live AI answer scanning</span>
-                          <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">Prompt-level competitor tracking</span>
-                          <span className={`rounded-full px-3 py-1 font-semibold ${isQuickMode ? "bg-amber-900/40 text-amber-300 border border-amber-700/40" : "bg-emerald-900/40 text-emerald-300 border border-emerald-700/40"}`}>
-                            {isQuickMode ? "Quick Preview" : "Full Analysis"}
-                          </span>
-                        </div>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200">
-              Score trend: {scoreTrend.changeText}
-            </span>
-            <button
-              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-                loading
-                  ? "bg-slate-300 text-slate-500"
-                  : "bg-indigo-600 text-white hover:bg-indigo-500"
-              }`}
-              onClick={handleDownloadReport}
-              disabled={loading}
-            >
-              Download Report (PDF)
-            </button>
-            <button
-              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-                loading
-                  ? "bg-slate-300 text-slate-500"
-                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-              }`}
-              onClick={handleCopySummary}
-              disabled={loading}
-            >
-              Copy Summary
-            </button>
-            <button
-              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-                loading
-                  ? "bg-slate-300 text-slate-500"
-                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-              }`}
-              onClick={handleShareResult}
-              disabled={loading}
-            >
-              Share result
-            </button>
-          </div>
-        </section>
-
-        {message && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-800">
-            {message}
+      <div className="mx-auto max-w-6xl space-y-5">
+        {shareToast && (
+          <div className="fixed bottom-5 right-5 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">
+            {shareToastText}
           </div>
         )}
 
-        {error && (
+        <section className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${heroGradient} p-6 md:p-8 text-white shadow-[0_0_45px_rgba(59,130,246,0.35)]`}>
+          <div className="absolute inset-0 bg-[#020617]/35" />
+          <div className="relative z-10 space-y-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex items-center rounded-full border border-white/25 bg-white/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wide">
+                  {hasAnalyzedOnce ? "AI Visibility Report" : "AI Visibility Scanner"}
+                </span>
+                <h1 className="mt-3 text-3xl font-extrabold leading-tight md:text-5xl">
+                  {heroHeadline}
+                </h1>
+                <p className="mt-3 max-w-2xl text-lg font-medium text-white/90">
+                  {heroSubtext}
+                </p>
+                <p className="mt-2 max-w-2xl text-sm font-semibold text-white/80">
+                  {heroConsequence || "We analyze your brand across AI-generated search results."}
+                </p>
+                {hasAnalyzedOnce ? (
+                  <p className="mt-1 max-w-2xl text-sm font-bold text-red-200">
+                    Right now, users are seeing your competitors instead of you.
+                  </p>
+                ) : null}
+                <p className="mt-1 max-w-2xl text-sm font-semibold text-amber-200">
+                  Every day you delay, competitors strengthen their position in AI results.
+                </p>
+              </div>
+              {typeof onBackToLanding === "function" ? (
+                <button
+                  onClick={onBackToLanding}
+                  className="rounded-lg border border-white/30 bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/15"
+                >
+                  Back
+                </button>
+              ) : null}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-2xl border border-white/20 bg-slate-950/20 p-5">
+                <div className="flex flex-wrap items-end gap-6">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Visibility score</p>
+                    <p className={`mt-1 text-6xl font-extrabold tracking-tight transition-all duration-300 ${isScorePulsing ? "scale-110 drop-shadow-[0_0_20px_rgba(255,255,255,0.9)]" : "scale-100"}`}>
+                      {animatedHeroScore}<span className="text-2xl font-bold opacity-60">/100</span>
+                    </p>
+                  </div>
+                  <div className="pb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Risk level</p>
+                    <p className="mt-1 inline-flex items-center rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-lg font-bold">
+                      {riskLabel}
+                      <span className="ml-2 text-sm font-semibold text-white/75">({riskScore}/100)</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-1 text-sm text-white/80">
+                  <p>{methodologyText}</p>
+                  <p>{confidenceSummary}</p>
+                  <p>If your brand is not mentioned in AI answers, users will choose competitors.</p>
+                  <p>Data based on AI-generated responses (ChatGPT, Gemini, etc.)</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/20 bg-slate-950/20 p-5">
+                <p className="text-sm font-semibold text-white/85">Run or refine analysis</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <input
+                    value={brandName}
+                    onChange={(e) => setBrandName(e.target.value)}
+                    className="rounded-lg border border-white/20 bg-slate-950/35 px-3 py-2 text-white placeholder:text-white/40"
+                    placeholder="Brand name"
+                  />
+                  <select
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="rounded-lg border border-white/20 bg-slate-950/35 px-3 py-2 text-white"
+                  >
+                    <option value="Global">Global</option>
+                    <option value="USA">USA</option>
+                    <option value="UK">UK</option>
+                    <option value="Germany">Germany</option>
+                    <option value="Turkey">Turkey</option>
+                    <option value="UAE">UAE</option>
+                    <option value="India">India</option>
+                    <option value="Canada">Canada</option>
+                    <option value="Australia">Australia</option>
+                  </select>
+                  <div className="md:col-span-2 grid gap-3 md:grid-cols-[1fr_auto_auto]">
+                    <select
+                      value={industry}
+                      onChange={(e) => setIndustry(e.target.value)}
+                      className="rounded-lg border border-white/20 bg-slate-950/35 px-3 py-2 text-white"
+                    >
+                      <option value="">Auto-detect industry</option>
+                      <option value="fintech">Fintech</option>
+                      <option value="ecommerce">E-commerce</option>
+                      <option value="saas">SaaS</option>
+                      <option value="ai">AI Tools</option>
+                      <option value="real estate">Real Estate</option>
+                      <option value="education">Education</option>
+                      <option value="healthcare">Healthcare</option>
+                      <option value="travel">Travel</option>
+                      <option value="hospitality">Hospitality</option>
+                      <option value="marketplace">Marketplace</option>
+                      <option value="crypto">Crypto</option>
+                      <option value="logistics">Logistics</option>
+                      <option value="other">Other</option>
+                      <option value="custom">Custom industry…</option>
+                    </select>
+                    <div className="flex rounded-lg border border-white/20 p-1">
+                      {["quick", "full"].map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setMode(m)}
+                          className={`px-3 py-2 text-sm font-semibold ${mode === m ? "rounded-md bg-white text-slate-950" : "text-white/75"}`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={fetchAnalysis}
+                      disabled={loading}
+                      className={`rounded-lg px-4 py-2 text-sm font-bold ${loading ? "bg-slate-700 text-slate-400" : "bg-white text-slate-950 hover:bg-slate-100"}`}
+                    >
+                      {loading ? "Analyzing..." : "Run Analysis"}
+                    </button>
+                  </div>
+                  {industry === "custom" ? (
+                    <input
+                      value={customIndustry}
+                      onChange={(e) => setCustomIndustry(e.target.value)}
+                      className="md:col-span-2 rounded-lg border border-white/20 bg-slate-950/35 px-3 py-2 text-white placeholder:text-white/40"
+                      placeholder="Type your industry"
+                    />
+                  ) : null}
+                </div>
+                {hasAnalyzedOnce ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+                      onClick={handleDownloadReport}
+                      disabled={loading}
+                    >
+                      Download PDF
+                    </button>
+                    <button
+                      className="rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15"
+                      onClick={handleCopySummary}
+                      disabled={loading}
+                    >
+                      Copy Summary
+                    </button>
+                    <button
+                      className="rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15"
+                      onClick={handleShareResult}
+                      disabled={loading}
+                    >
+                      Share
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {message ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-800">
+            {message}
+          </div>
+        ) : null}
+
+        {error ? (
           <div className="flex items-center justify-between rounded-xl border border-red-300 bg-red-50 p-4 text-red-700">
             <span>{error}</span>
             <button
@@ -1203,13 +1051,7 @@ export default function AnalyticsDashboard({
               Retry
             </button>
           </div>
-        )}
-
-        {shareToast && (
-          <div className="fixed bottom-5 right-5 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">
-            {shareToastText}
-          </div>
-        )}
+        ) : null}
 
         {loading ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0F1A]/95 backdrop-blur-sm">
@@ -1219,28 +1061,15 @@ export default function AnalyticsDashboard({
                 <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-violet-400 [animation-delay:150ms]" />
                 <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-emerald-400 [animation-delay:300ms]" />
               </div>
-
               <h3 className="text-center text-2xl font-bold text-white">Analyzing AI visibility...</h3>
-
               <div className="mt-6 space-y-3 text-sm">
-                {[
-                  "scanning AI responses",
-                  "detecting competitors",
-                  "calculating visibility score",
-                ].map((step, idx) => {
+                {["scanning AI responses", "detecting competitors", "calculating visibility score"].map((step, idx) => {
                   const isActive = idx === loadingStep;
                   const isPassed = idx < loadingStep;
-
                   return (
                     <div
                       key={step}
-                      className={`flex items-center justify-between rounded-lg border px-3 py-2 transition-all duration-300 ${
-                        isActive
-                          ? "border-blue-400/60 bg-blue-500/10 text-blue-200"
-                          : isPassed
-                          ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200"
-                          : "border-slate-700 bg-slate-900 text-slate-400"
-                      }`}
+                      className={`flex items-center justify-between rounded-lg border px-3 py-2 transition-all duration-300 ${isActive ? "border-blue-400/60 bg-blue-500/10 text-blue-200" : isPassed ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200" : "border-slate-700 bg-slate-900 text-slate-400"}`}
                     >
                       <span className="capitalize">{step}</span>
                       <span>{isActive ? "..." : isPassed ? "done" : "pending"}</span>
@@ -1250,541 +1079,135 @@ export default function AnalyticsDashboard({
               </div>
             </div>
           </div>
-        ) : (
+        ) : hasAnalyzedOnce ? (
           <>
+            <section className={`rounded-2xl border border-slate-700 bg-[#111827] p-5 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
+              <h2 className="text-xl font-bold text-white">What should you do next?</h2>
+              <p className="mt-1 text-sm text-slate-400">Prioritized actions to recover visibility quickly.</p>
+              <ol className="mt-4 grid gap-3 md:grid-cols-3">
+                {prioritizedActions.map((item, idx) => (
+                  <li key={item} className="rounded-xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-200">
+                    <p className="text-xs font-bold uppercase tracking-wide text-cyan-400">Priority {idx + 1}</p>
+                    <p className="mt-2 font-semibold text-white">{item}</p>
+                  </li>
+                ))}
+              </ol>
+            </section>
 
+            <section className={`rounded-2xl border border-slate-700 bg-[#111827] p-5 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
+              <h2 className="text-xl font-bold text-white">What this means</h2>
+              <p className="mt-2 text-sm font-semibold text-slate-100">{whatThisMeansLead}</p>
+              <ul className="mt-4 space-y-2 text-sm text-slate-300">
+                <li>• You are losing visibility to {topCompetitorName} in comparison queries.</li>
+                <li>• {brandName || "Your brand"} appears inconsistently in AI-generated answers.</li>
+                <li>• High-value queries are still dominated by competitors.</li>
+              </ul>
+            </section>
 
-            <section className={`rounded-2xl border transition-all duration-500 ${
-              visibilityScoreValue < 30
-                ? "border-red-700/60 bg-red-950/30"
-                : visibilityScoreValue <= 70
-                ? "border-amber-700/50 bg-amber-950/20"
-                : "border-emerald-700/50 bg-emerald-950/20"
-            } p-5 shadow-lg ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
-              <div className="flex flex-col gap-1">
-                <p className={`text-xs font-bold uppercase tracking-widest ${visibilityScoreValue < 30 ? "text-red-400" : visibilityScoreValue <= 70 ? "text-amber-400" : "text-emerald-400"}`}>
-                  {visibilityScoreValue < 30 ? "⚠ Critical" : visibilityScoreValue <= 70 ? "⚠ Warning" : "✓ Healthy"}
-                </p>
-                <p className={`text-lg font-bold ${visibilityScoreValue < 30 ? "text-red-200" : visibilityScoreValue <= 70 ? "text-amber-200" : "text-emerald-100"}`}>
-                  {data.biggestWeakness || data.summaryInsight || "Your brand has limited AI recommendation coverage."}
-                </p>
+            <section className={`rounded-2xl border border-amber-700/40 bg-amber-950/20 p-5 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
+              <h2 className="text-xl font-bold text-white">Business Impact</h2>
+              <p className="mt-2 text-sm text-amber-100">You are missing up to {estimatedMissedDemand}% of AI-driven demand in your category.</p>
+              <p className="mt-1 text-sm font-semibold text-amber-50">This means you are losing a significant share of potential traffic and conversions.</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-2 text-sm">
+                <div className="rounded-lg border border-amber-700/30 bg-amber-900/20 p-3 text-amber-100">
+                  Estimated traffic loss: {estimatedMissedDemand}% of AI recommendation opportunity
+                </div>
+                <div className="rounded-lg border border-emerald-700/30 bg-emerald-900/20 p-3 text-emerald-100">
+                  This directly impacts traffic, conversions, and revenue.
+                </div>
               </div>
             </section>
 
-            {hasAnalyzedOnce ? (
-              <section className={`rounded-2xl border border-slate-700 bg-[#111827] p-5 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
-                <h3 className="text-lg font-bold text-white mb-4">What this means for you</h3>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-xl border border-red-800/50 bg-red-950/30 p-4">
-                    <p className="text-xs font-bold uppercase tracking-wide text-red-400 mb-2">Losing to</p>
-                    <p className="text-sm font-semibold text-slate-100">
-                      {displayedTopCompetitors[0]?.name
-                        ? `You are losing visibility to ${displayedTopCompetitors[0].name}`
-                        : "Competitors are capturing your potential demand in AI answers"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-amber-800/50 bg-amber-950/30 p-4">
-                    <p className="text-xs font-bold uppercase tracking-wide text-amber-400 mb-2">Missing demand</p>
-                    <p className="text-sm font-semibold text-slate-100">
-                      You are missing <span className="text-amber-300 font-bold">{Math.max(0, 100 - visibilityScoreValue)}%</span> of potential demand from AI-generated search
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Root cause</p>
-                    <p className="text-sm font-semibold text-slate-100">
-                      Your content is not consistently referenced by AI systems answering buyer questions
-                    </p>
-                  </div>
+            <section className={`rounded-2xl border border-slate-700 bg-[#111827] p-5 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`} ref={competitorsRef}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white">Competitors</h2>
+                  <p className="mt-1 text-sm font-semibold text-amber-300">Top competitor: {topCompetitorName}</p>
+                  <p className="mt-1 text-sm font-semibold text-red-300">Your biggest competitor is capturing visibility in key queries.</p>
+                  <p className="mt-1 text-sm text-slate-400">This chart shows how often your brand appears in AI-generated responses compared to competitors.</p>
+                  <p className="mt-1 text-xs text-slate-500">Share of visibility in AI answers. Data based on AI-generated responses (ChatGPT, Gemini, etc.)</p>
                 </div>
-              </section>
-            ) : null}
-
-            {isQuickMode ? (
-              <section className={`rounded-2xl border border-slate-700 bg-[#111827] p-5 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Analysis Results</h3>
-                    <p className="text-sm text-slate-400">Quick preview — showing limited data only</p>
-                  </div>
-                  <span className="rounded-full bg-amber-500/15 border border-amber-500/40 px-3 py-1 text-xs font-bold text-amber-300">Preview Only</span>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-                    <p className="text-xs font-semibold text-emerald-400 mb-1">✔ Available in Quick Mode</p>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      <li>✔ Visibility score: <span className="font-bold text-white">{visibilityScoreValue}/100</span></li>
-                      <li>✔ Top 3 competitors</li>
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-red-800/40 bg-red-950/20 p-4">
-                    <p className="text-xs font-semibold text-red-400 mb-1">❌ Locked — Upgrade to Unlock</p>
-                    <ul className="space-y-1 text-sm text-slate-400">
-                      <li>❌ Full competitor list {hiddenCompetitorCount > 0 ? `(+${hiddenCompetitorCount} hidden)` : ""}</li>
-                      <li>❌ Visibility trend chart</li>
-                      <li>❌ Source intelligence</li>
-                      <li>❌ Full action plan</li>
-                      <li>❌ Competitor strategies</li>
-                    </ul>
-                  </div>
-                </div>
-                <div className="mt-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-4 flex items-center justify-between gap-4 flex-wrap">
-                  <p className="text-sm font-semibold text-indigo-200">🔒 This is only a preview. Upgrade to see real insights.</p>
-                  <button
-                    onClick={() => setPremiumModalOpen(true)}
-                    className="flex-shrink-0 rounded-lg bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#22C55E] px-5 py-2 text-sm font-bold text-white hover:opacity-95 hover:shadow-[0_0_24px_rgba(139,92,246,0.4)] transition"
-                  >
-                    Unlock Full Analysis
-                  </button>
-                </div>
-              </section>
-            ) : (
-              <section className={`rounded-2xl border border-slate-800 bg-[#111827] p-5 shadow-sm transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
-                <h4 className="text-lg font-bold text-white mb-1">Action Plan</h4>
-                <p className="text-sm text-slate-400 mb-4">Prioritized steps to recover and grow AI visibility.</p>
-                <div className="grid gap-3 md:grid-cols-3">
-                  {actionPlan.map((item, idx) => (
-                    <article
-                      key={idx}
-                      className="rounded-xl border border-slate-700 bg-slate-900 p-4"
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-wider text-rose-400">Problem</p>
-                      <p className="mt-1 text-sm text-slate-200">{item.problem}</p>
-                      <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-emerald-400">Recommendation</p>
-                      <p className="mt-1 text-sm text-slate-200">{item.recommendation}</p>
-                      <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-cyan-400">Expected Impact</p>
-                      <p className="mt-1 text-sm text-slate-200">{item.impact}</p>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
-              {(isQuickMode ? cardDefinitions.filter((card) => card.valueKey === "score") : cardDefinitions).map((card) => (
-                <article
-                  key={card.label}
-                  className={`rounded-2xl border border-slate-700 bg-[#111827] p-4 shadow-sm transition-all duration-500 hover:translate-y-[-2px] hover:shadow-[0_0_22px_rgba(59,130,246,0.2)] ${
-                    kpiAnimated ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    {card.label}
-                  </p>
-                  <p
-                    className={`mt-2 text-2xl font-bold text-white transition-all duration-300 ${
-                      card.valueKey === "score" && isScorePulsing
-                        ? "scale-110 drop-shadow-[0_0_12px_rgba(34,197,94,0.85)]"
-                        : "scale-100"
-                    }`}
-                  >
-                    {card.valueKey === "score" ? animatedHeroScore : data[card.valueKey]}
-                    {card.suffix || ""}
-                  </p>
-                </article>
-              ))}
-            </section>
-
-            <section className={`grid grid-cols-1 gap-4 xl:grid-cols-3 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
-              <div
-                className="xl:col-span-2 rounded-2xl border border-slate-700 bg-[#111827] p-4 shadow-sm relative"
-                ref={trendRef}
-              >
-                <div className={`mb-3 flex items-center justify-between ${isQuickMode ? "blur-sm" : ""}`}>
-                  <h3 className="text-sm font-semibold">
-                    AI Visibility Score Trend
-                  </h3>
-                  <span className="text-xs text-slate-500">Last 6 months</span>
-                </div>
-                <div className={isQuickMode ? "blur-sm select-none" : ""}>
-                {(!data.trend || data.trend.length === 0) ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                    No trend data yet — run a full analysis to unlock visibility history.
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <AreaChart data={data.trend}>
-                      <defs>
-                        <linearGradient
-                          id="trendGradient"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                        <stop
-                          offset="5%"
-                          stopColor="#6366f1"
-                          stopOpacity={0.4}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor="#6366f1"
-                          stopOpacity={0.05}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="month" style={{ fontSize: 12 }} />
-                    <YAxis domain={[40, 80]} style={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="total"
-                      stroke="#6366f1"
-                      fill="url(#trendGradient)"
-                      strokeWidth={2}
-                      isAnimationActive
-                      animationDuration={900}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-                )}
-                </div>
-                {isQuickMode ? (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/45">
-                    <button
-                      onClick={() => setPremiumModalOpen(true)}
-                      className="rounded-lg bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#22C55E] px-4 py-2 text-sm font-semibold text-white hover:shadow-[0_0_24px_rgba(34,197,94,0.45)] transition"
-                    >
-                      🔒 Upgrade to see real insights
-                    </button>
-                  </div>
+                {isQuickMode && hiddenCompetitorCount > 0 ? (
+                  <span className="rounded-full border border-amber-700/40 bg-amber-900/20 px-3 py-1 text-xs font-semibold text-amber-300">+{hiddenCompetitorCount} hidden</span>
                 ) : null}
               </div>
-
-              <div className="rounded-2xl border border-slate-700 bg-[#111827] p-4 shadow-sm relative">
-                <div className={`mb-3 flex items-center justify-between ${isQuickMode ? "blur-sm" : ""}`}>
-                  <h3 className="text-sm font-semibold">
-                    Traffic Source Performance
-                  </h3>
-                  <span className="text-xs text-slate-500">
-                    AI + Organic impact
-                  </span>
+              {displayedCompetitors.length === 0 ? (
+                <div className="mt-4 rounded-xl border border-amber-700/30 bg-amber-950/20 p-4 text-sm text-amber-100">
+                  Limited competitor signal detected. The current dataset is too small for a strong market read.
                 </div>
-                <div className={isQuickMode ? "blur-sm select-none" : ""}>
-                {(!hasTrustworthySourceSignals || !data.channelPerformance || data.channelPerformance.length === 0) ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                    Traffic sources require deeper analysis.
-                    <br />
-                    Run full analysis to unlock influence channels.
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={data.channelPerformance}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="channel" style={{ fontSize: 12 }} />
-                      <YAxis style={{ fontSize: 12 }} />
-                      <Tooltip />
-                      <Legend />
-                      <Bar
-                        dataKey="contribution"
-                        fill="#0ea5e9"
-                        radius={[6, 6, 0, 0]}
-                        isAnimationActive
-                        animationDuration={900}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-                </div>
-                {isQuickMode ? (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/45">
-                    <button
-                      onClick={() => setPremiumModalOpen(true)}
-                      className="rounded-lg bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#22C55E] px-4 py-2 text-sm font-semibold text-white hover:shadow-[0_0_24px_rgba(139,92,246,0.45)] transition"
-                    >
-                      🔒 Upgrade to see real insights
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </section>
-
-            <section className={`grid grid-cols-1 gap-4 xl:grid-cols-2 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
-              {hasWeakSignals ? (
-                <div className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-                  <h3 className="text-lg font-bold">Signal Quality Notice</h3>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Quick analysis found limited signals. Run full analysis for accurate insights.
-                  </p>
-                  <p className="mt-2 text-xs text-slate-400">{sourceConfidenceText}</p>
-                </div>
-              ) : null}
-
-              {!hasWeakSignals ? (
-              <div
-                className="rounded-2xl border border-slate-700 bg-[#111827] p-4 shadow-sm"
-                ref={competitorsRef}
-              >
-                <div className="mb-3">
-                  <h3 className="text-lg font-bold">Visibility share in AI responses</h3>
-                  <p className="text-sm text-slate-500">
-                    How often each brand appears in AI assistant answers (% of prompts).
-                  </p>
-                  {isQuickMode && hiddenCompetitorCount > 0 ? (
-                    <p className="mt-1 text-xs font-semibold text-amber-300">+ {hiddenCompetitorCount} more competitors hidden</p>
-                  ) : null}
-                </div>
-                {(displayedTopCompetitors.length === 0) ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                    <p>No strong competitors detected in this analysis.</p>
-                    <p className="mt-2">This may indicate limited data signals, niche positioning, or low competitive visibility.</p>
-                  </div>
-                ) : (
-                  <>
-                    {!isQuickMode ? (
-                    <ResponsiveContainer width="100%" height={200}>
+              ) : (
+                <div className="mt-5 grid gap-5 lg:grid-cols-[1.4fr_0.9fr]">
+                  <div className="relative rounded-xl border border-slate-700 bg-slate-900 p-4">
+                    <ResponsiveContainer width="100%" height={260}>
                       <BarChart data={competitorChartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        <XAxis dataKey="name" style={{ fontSize: 11 }} tick={{ fill: "#9CA3AF" }} />
-                        <YAxis style={{ fontSize: 11 }} tick={{ fill: "#9CA3AF" }} unit="%" />
+                        <XAxis dataKey="name" tick={{ fill: "#9CA3AF", fontSize: 11 }} />
+                        <YAxis unit="%" tick={{ fill: "#9CA3AF", fontSize: 11 }} domain={[0, 100]} />
                         <Tooltip
-                          formatter={(val) => [`${val}%`, "Appearance rate"]}
+                          formatter={(val) => [`${val}%`, "Visibility share"]}
                           contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 8 }}
                           labelStyle={{ color: "#E5E7EB" }}
                           itemStyle={{ color: "#E5E7EB" }}
                         />
-                        <Bar
-                          dataKey="appearanceRate"
-                          radius={[6, 6, 0, 0]}
-                          isAnimationActive
-                          animationDuration={900}
-                        >
+                        <Bar dataKey="appearanceRate" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={900}>
                           {competitorChartData.map((entry, idx) => (
-                            <Cell
-                              key={`cell-${idx}`}
-                              fill={entry.isAnalyzedBrand ? "#6366f1" : "#f59e0b"}
-                              opacity={entry.isAnalyzedBrand ? 1 : 0.85}
-                            />
+                            <Cell key={`cell-${idx}`} fill={entry.isAnalyzedBrand ? "#6366f1" : "#f59e0b"} opacity={entry.isAnalyzedBrand ? 1 : 0.85} />
                           ))}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
+                    {isQuickMode ? (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-slate-950/65 backdrop-blur-sm">
+                        <button
+                          onClick={() => setPremiumModalOpen(true)}
+                          className="rounded-lg bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#22C55E] px-5 py-2 text-sm font-bold text-white"
+                        >
+                          🔒 This is only a preview. Upgrade to see real insights.
+                        </button>
+                      </div>
                     ) : null}
-                    <div className="mt-3 space-y-2">
-                      {displayedTopCompetitors.map((comp) => {
-                        let topClass = "text-slate-400";
-                        let dominanceLabel = "Observed in responses";
-                        if (comp.score >= 6) {
-                          dominanceLabel = "Strong competitor signal";
-                          topClass = "text-red-400";
-                        } else if (comp.score >= 3) {
-                          dominanceLabel = "Moderate competitor signal";
-                          topClass = "text-amber-400";
-                        }
-                        return (
-                          <div key={comp.name} className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm transition duration-300 hover:shadow-md hover:border-slate-600">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium text-slate-100">{comp.name}</span>
-                              <div className="text-right">
-                                <span className="text-slate-400">{comp.appearanceRate}% of prompts</span>
-                                <p className={`${topClass} text-xs font-semibold`}>{dominanceLabel}</p>
-                              </div>
-                            </div>
-                            {comp.whyItAppears ? (
-                              <p className="mt-1 text-[11px] text-slate-500">{comp.whyItAppears}</p>
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-              ) : null}
-
-              {!hasWeakSignals && !isQuickMode ? (
-              <div
-                className="rounded-2xl border border-slate-700 bg-[#111827] p-4 shadow-sm"
-                ref={sourcesRef}
-              >
-                <div className="mb-3">
-                  <h3 className="text-lg font-bold">Source Analysis</h3>
-                  <p className="text-sm text-slate-500">
-                    Top sources driving AI visibility.
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">{sourceConfidenceText}</p>
-                </div>
-                {(!hasTrustworthySourceSignals || !data.topSources || data.topSources.length === 0) ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                    Limited source signals detected.
-                    <br />
-                    Full analysis provides deeper visibility into influence channels.
                   </div>
-                ) : (
-                  <>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={data.topSources}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis dataKey="name" style={{ fontSize: 12 }} />
-                        <YAxis style={{ fontSize: 12 }} />
-                        <Tooltip />
-                        <Bar
-                          dataKey="score"
-                          fill="#10b981"
-                          radius={[6, 6, 0, 0]}
-                          isAnimationActive
-                          animationDuration={900}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                    <div className="mt-3 space-y-2">
-                      {data.topSources.map((src) => {
-                        const typeLabels = {
-                          product: "Official product content",
-                          media: "High-authority media coverage",
-                          industry: "Industry research and review signal",
-                          community: "Community discussion signal",
-                        };
-                        const why = typeLabels[src.type] || "Trusted source";
-
-                        return (
-                          <div key={src.name || Math.random()} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{src.name}</span>
-                              <span className="text-slate-600">{src.mentionCount ? `${src.mentionCount} mentions` : "observed"}</span>
-                            </div>
-                            <p className="mt-1 text-xs text-slate-500">{why}</p>
-                            <p className="mt-1 text-[11px] text-slate-400">
-                              {src.type} · {src.confidence} confidence{src.inferred ? " · Estimated source" : ""}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-              ) : null}
+                  <div className="space-y-2">
+                    {displayedCompetitors.map((comp, idx) => (
+                      <div key={comp.name} className={`rounded-xl border p-3 ${idx === 0 ? "border-amber-400/60 bg-amber-900/20" : "border-slate-700 bg-slate-900"}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold text-white">{comp.name}</p>
+                          <p className="text-sm font-semibold text-slate-300">{comp.appearanceRate}%</p>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">{comp.whyItAppears || `${comp.name} appears frequently across measured prompts.`}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
 
-            <section className={`relative rounded-2xl border border-slate-700 bg-[#111827] p-4 shadow-sm transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
-              <div className="mb-3">
-                <h3 className="text-lg font-bold">Full AI Visibility Analysis</h3>
-                <p className="text-sm text-slate-500">
-                  In-depth ranking, prompt-level publishing recommendations, and
-                  model-specific gap analysis.
-                </p>
-              </div>
-
-              <div className={`space-y-3 ${isQuickMode ? "blur-sm select-none" : ""}`}>
-                <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <li className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <p className="font-medium">Biggest Weakness</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {data.biggestWeakness ? `${data.biggestWeakness} category needs attention` : 'Analysis in progress...'}
-                    </p>
-                  </li>
-                  <li className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <p className="font-medium">Top Competitor Threat</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {data.competitorThreat ? data.competitorThreat.split(' - ')[0] : 'No significant threats detected'}
-                    </p>
-                  </li>
-                  <li className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <p className="font-medium">Strongest Area</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {data.strongestArea ? `${data.strongestArea} category performing well` : 'Analysis in progress...'}
-                    </p>
-                  </li>
-                  <li className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <p className="font-medium">Content Opportunity</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {data.contentOpportunity ? data.contentOpportunity.substring(0, 50) + '...' : 'Unlock to discover opportunities'}
-                    </p>
-                  </li>
-                </ul>
-                <p className="text-sm text-slate-600">
-                  Full data unlock reveals detailed competitor strategies, prompt-level optimizations, and actionable monthly playbooks.
-                </p>
-              </div>
-
-              {isQuickMode ? (
-              <div className="absolute inset-0 rounded-2xl bg-slate-950/45 backdrop-blur-xl transition-opacity">
-                <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 p-4 text-center">
-                  <p className="text-2xl font-bold text-slate-100">
-                    You are currently losing visibility in AI search.
+            <section className={`rounded-2xl border border-slate-700 bg-[#111827] p-5 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white">See exactly how to win back visibility</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    {isQuickMode
+                      ? "Get the full competitor map, query-level gaps, and execution guidance to recover demand."
+                      : "Full analysis is active. Re-run anytime as your content and market position change."}
                   </p>
-                  <ul className="mt-2 list-disc space-y-1 text-sm text-slate-200 pl-5 text-left">
-                    <li>See exact competitor strategies</li>
-                    <li>Get content plan to recover visibility</li>
-                    <li>Identify hidden growth gaps</li>
+                  <p className="mt-3 text-sm font-semibold text-slate-100">Unlock to see:</p>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                    <li>• exact queries where you lose visibility</li>
+                    <li>• which competitors dominate each query</li>
+                    <li>• step-by-step recovery strategy</li>
                   </ul>
-                  <button
-                    onClick={() => setPremiumModalOpen(true)}
-                    className="rounded-xl bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#22C55E] px-5 py-2 text-sm font-semibold text-white shadow-lg hover:opacity-90"
-                  >
-                    Unlock Full Analysis
-                  </button>
-                  <span className="text-xs text-slate-300">
-                    Enterprise | Team | Agency plans available; includes data export and stakeholder reporting.
-                              {/* ── WHAT SHOULD YOU DO NEXT ── */}
-                              <section className={`rounded-2xl border border-slate-700 bg-[#111827] p-5 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
-                                <h3 className="text-lg font-bold text-white mb-1">What should you do next?</h3>
-                                <p className="text-sm text-slate-400 mb-4">These three actions will have the most impact on your AI visibility.</p>
-                                <div className="grid gap-3 md:grid-cols-3">
-                                  <div className="rounded-xl border border-indigo-700/40 bg-indigo-950/20 p-4">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-indigo-400 mb-2">Step 1 — Content</p>
-                                    <p className="text-sm font-semibold text-slate-100 mb-1">Create comparison content</p>
-                                    <p className="text-sm text-slate-400">Publish pages that directly compare your brand to competitors. AI systems heavily cite comparison content.</p>
-                                  </div>
-                                  <div className="rounded-xl border border-violet-700/40 bg-violet-950/20 p-4">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-violet-400 mb-2">Step 2 — Authority</p>
-                                    <p className="text-sm font-semibold text-slate-100 mb-1">Publish authority pages</p>
-                                    <p className="text-sm text-slate-400">Create definitive, evidence-backed pages on your core use cases. These become the sources AI systems quote.</p>
-                                  </div>
-                                  <div className="rounded-xl border border-cyan-700/40 bg-cyan-950/20 p-4">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-cyan-400 mb-2">Step 3 — Sources</p>
-                                    <p className="text-sm font-semibold text-slate-100 mb-1">Target AI-cited sources</p>
-                                    <p className="text-sm text-slate-400">Get listed and cited on the platforms AI assistants consistently reference: G2, Reddit, industry blogs.</p>
-                                  </div>
-                                </div>
-                              </section>
-
-                              {/* ── FULL INTELLIGENCE TEASER (locked in quick mode) ── */}
-                              <section className={`relative rounded-2xl border border-slate-700 bg-[#111827] p-5 shadow-sm overflow-hidden transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
-                                <div className={isQuickMode ? "blur-[3px] select-none pointer-events-none" : ""}>
-                                  <h3 className="text-lg font-bold text-white mb-1">Competitive Intelligence</h3>
-                                  <p className="text-sm text-slate-400 mb-4">Why competitors appear more frequently in AI responses than you.</p>
-                                  <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                    <li className="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                                      <p className="text-xs font-bold text-rose-400 uppercase tracking-wide mb-1">Biggest Weakness</p>
-                                      <p className="text-sm text-slate-300">{data.biggestWeakness || "Inconsistent AI coverage across high-intent prompts."}</p>
-                                    </li>
-                                    <li className="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                                      <p className="text-xs font-bold text-amber-400 uppercase tracking-wide mb-1">Top Threat</p>
-                                      <p className="text-sm text-slate-300">{data.competitorThreat || "A competitor is being cited significantly more in AI comparisons."}</p>
-                                    </li>
-                                    <li className="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                                      <p className="text-xs font-bold text-emerald-400 uppercase tracking-wide mb-1">Strongest Signal</p>
-                                      <p className="text-sm text-slate-300">{data.strongestArea || "Product content and direct mentions are your strongest existing signal."}</p>
-                                    </li>
-                                    <li className="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                                      <p className="text-xs font-bold text-cyan-400 uppercase tracking-wide mb-1">Top Opportunity</p>
-                                      <p className="text-sm text-slate-300">{data.contentOpportunity || "Create decision-stage content for high-intent AI queries."}</p>
-                                    </li>
-                                  </ul>
-                                </div>
-                                {isQuickMode ? (
-                                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-slate-950/55 backdrop-blur-sm p-6 text-center">
-                                    <p className="text-xl font-bold text-white mb-2">You are losing visibility right now.</p>
-                                    <p className="text-sm text-slate-300 mb-4 max-w-sm">Full analysis shows exactly where, why, and how to fix it — including competitor strategies and a week-by-week playbook.</p>
-                                    <button
-                                      onClick={() => setPremiumModalOpen(true)}
-                                      className="rounded-xl bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#22C55E] px-6 py-2.5 text-sm font-bold text-white shadow-lg hover:opacity-90 transition"
-                                    >
-                                      Unlock Full Analysis
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </section>
-                  </span>
                 </div>
+                <button
+                  onClick={() => setPremiumModalOpen(true)}
+                  className="rounded-xl bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#22C55E] px-6 py-3 text-sm font-bold text-white"
+                >
+                  {isQuickMode ? "See exactly how to win back visibility" : "Manage Full Analysis"}
+                </button>
               </div>
-              ) : null}
             </section>
           </>
-        )}
+        ) : null}
       </div>
 
       {isPremiumModalOpen && (
@@ -1792,9 +1215,9 @@ export default function AnalyticsDashboard({
           <div className="w-full max-w-xl rounded-2xl border border-slate-700 bg-[#111827] p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between">
               <div>
-                <h4 className="text-2xl font-bold text-white">Upgrade to Full Analysis</h4>
+                <h4 className="text-2xl font-bold text-white">See exactly how to win back visibility</h4>
                 <p className="text-sm text-slate-300">
-                  Unlock the complete investor-level AI visibility experience.
+                  Unlock the full roadmap to recover AI-driven demand.
                 </p>
               </div>
               <button
@@ -1809,14 +1232,14 @@ export default function AnalyticsDashboard({
               <p className="text-sm font-semibold text-slate-100">What you unlock:</p>
               <ul className="mt-3 space-y-2 text-sm text-slate-300">
                 <li>• Full competitor analysis</li>
-                <li>• Source insights and influence channels</li>
-                <li>• Actionable recommendations and execution plan</li>
+                <li>• Query-level visibility gaps and source insights</li>
+                <li>• Exact actions to recover and grow visibility</li>
               </ul>
               <button
                 onClick={() => handleUpgrade("full")}
                 className="mt-4 w-full rounded-lg bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#22C55E] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
               >
-                Activate Full Analysis
+                See exactly how to win back visibility
               </button>
             </div>
 
@@ -1825,7 +1248,7 @@ export default function AnalyticsDashboard({
                 onClick={() => setPremiumModalOpen(false)}
                 className="rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-600 hover:bg-slate-100"
               >
-                Maybe later
+                Not now
               </button>
             </div>
           </div>
@@ -1848,9 +1271,7 @@ export default function AnalyticsDashboard({
                 <div className="mb-5 flex items-start justify-between">
                   <div>
                     <h4 className="text-xl font-bold text-white">Get your AI visibility report</h4>
-                    <p className="mt-1 text-sm text-slate-300">We'll send a personalized report directly to your inbox.</p>
-                                      <h4 className="text-xl font-bold text-white">Get your AI visibility report</h4>
-                                      <p className="mt-1 text-sm text-slate-400">We'll send you a breakdown of:</p>
+                    <p className="mt-1 text-sm text-slate-400">We'll send you a breakdown of:</p>
                   </div>
                   <button
                     onClick={() => setEmailCaptureOpen(false)}
@@ -1862,30 +1283,16 @@ export default function AnalyticsDashboard({
 
                 <ul className="mb-5 space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-300">
                   <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-emerald-400">✓</span>
-                    <span>Where you lose visibility in AI responses</span>
+                    <span className="mt-0.5 text-emerald-400 font-bold">•</span>
+                    <span>Where you lose visibility to competitors</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-emerald-400">✓</span>
-                    <span>Competitor insights and ranking gaps</span>
+                    <span className="mt-0.5 text-emerald-400 font-bold">•</span>
+                    <span>Which competitors beat you in AI answers</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-emerald-400">✓</span>
-                    <span>What to fix this week to recover visibility</span>
-                                  <ul className="mb-5 space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-300">
-                                    <li className="flex items-start gap-2">
-                                      <span className="mt-0.5 text-emerald-400 font-bold">•</span>
-                                      <span>Where you lose visibility to competitors</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                      <span className="mt-0.5 text-emerald-400 font-bold">•</span>
-                                      <span>Which competitors beat you in AI answers</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                      <span className="mt-0.5 text-emerald-400 font-bold">•</span>
-                                      <span>What to fix this week</span>
-                                    </li>
-                                  </ul>
+                    <span className="mt-0.5 text-emerald-400 font-bold">•</span>
+                    <span>What to fix this week</span>
                   </li>
                 </ul>
 
