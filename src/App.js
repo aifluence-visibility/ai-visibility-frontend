@@ -6,12 +6,14 @@ function App() {
   const [view, setView] = useState("landing");
   const [analysisParams, setAnalysisParams] = useState({
     brandName: "",
+    industry: "",
+    country: "Global",
     mode: "quick",
     autoRun: false,
   });
 
-  const handleStartAnalysis = ({ brandName, mode = "quick", autoRun = true }) => {
-    setAnalysisParams({ brandName, mode, autoRun });
+  const handleStartAnalysis = ({ brandName, industry = "", country = "Global", mode = "quick", autoRun = true }) => {
+    setAnalysisParams({ brandName, industry, country, mode, autoRun });
     setView("dashboard");
   };
 
@@ -19,6 +21,8 @@ function App() {
     return (
       <AnalyticsDashboard
         initialBrandName={analysisParams.brandName}
+        initialIndustry={analysisParams.industry}
+        initialCountry={analysisParams.country}
         initialMode={analysisParams.mode}
         autoRun={analysisParams.autoRun}
         onBackToLanding={() => setView("landing")}
@@ -28,8 +32,8 @@ function App() {
 
   return (
     <LandingPage
-      onAnalyze={({ brandName, mode, autoRun }) =>
-        handleStartAnalysis({ brandName, mode, autoRun })
+      onAnalyze={({ brandName, industry, country, mode, autoRun }) =>
+        handleStartAnalysis({ brandName, industry, country, mode, autoRun })
       }
       onSeeDemo={() =>
         handleStartAnalysis({ brandName: "Stripe", mode: "quick", autoRun: true })
