@@ -46,59 +46,77 @@ function classifySource(domain) {
 }
 
 function buildPrompts(brandName, industry, targetCountry, mode) {
+  const normalizedBrand = (brandName || "").trim();
   const locationSuffix = targetCountry && targetCountry !== "Global" ? ` in ${targetCountry}` : "";
 
-  const fullPrompts = [
-    `Which ${industry} brands are most recommended by AI assistants${locationSuffix}?`,
-    `Compare ${brandName} with top ${industry} alternatives${locationSuffix}.`,
-    `What are the best ${industry} tools for growing companies${locationSuffix}?`,
-    `How does ${brandName} perform against competitors in reliability and pricing${locationSuffix}?`,
-    `What ${industry} products are most trusted for enterprise buyers${locationSuffix}?`,
-    `Which companies are most cited in ${industry} AI answers${locationSuffix}?`,
-    `What are the strongest alternatives to ${brandName} in ${industry}${locationSuffix}?`,
-    `How should buyers choose between ${brandName} and competitors${locationSuffix}?`,
-    `What content themes increase AI visibility for ${industry} brands${locationSuffix}?`,
-    `What sources influence AI recommendations in ${industry}${locationSuffix}?`,
-    `Which brands dominate comparison queries in ${industry}${locationSuffix}?`,
-    `What decision factors make one ${industry} brand rank above another${locationSuffix}?`,
+  const prompts = [
+    `best ${normalizedBrand} competitors`,
+    `${normalizedBrand} alternatives`,
+    `${normalizedBrand} vs other ${industry} tools${locationSuffix}`,
+    `is ${normalizedBrand} recommended by AI assistants${locationSuffix}`,
+    `top companies similar to ${normalizedBrand}${locationSuffix}`,
   ];
 
   if (mode === "quick") {
-    return fullPrompts.slice(0, 3);
+    return prompts.slice(0, 2);
   }
 
-  return fullPrompts;
+  return prompts;
 }
 
-function mapAnalyzeResponse(response, payload, mode) {
-  const analysis = response?.data ?? response ?? {};
-  const mentionsByPrompt = Array.isArray(analysis.mentionsByPrompt)
-    ? analysis.mentionsByPrompt
+function mapAnalyzeResponse(analysis, payload, mode) {
+  const normalizedAnalysis = analysis || {};
+  const mentionsByPrompt = Array.isArray(normalizedAnalysis.mentionsByPrompt)
+    ? normalizedAnalysis.mentionsByPrompt
     : [];
-  const analyzedResponses = Array.isArray(analysis.analyzedResponses)
-    ? analysis.analyzedResponses
+  const analyzedResponses = Array.isArray(normalizedAnalysis.analyzedResponses)
+    ? normalizedAnalysis.analyzedResponses
     : [];
 
-  const competitorCounter = {};
-  mentionsByPrompt.forEach((entry) => {
-    const competitors = Array.isArray(entry.competitors) ? entry.competitors : [];
-    competitors.forEach((name) => {
-      competitorCounter[name] = (competitorCounter[name] || 0) + 1;
-    });
-  });
+  const apiCompetitors = Array.isArray(normalizedAnalysis.competitors)
+    ? normalizedAnalysis.competitors
+    : [];
 
-  const totalPromptCount = Math.max(1, mentionsByPrompt.length || buildPrompts(payload.brandName, payload.industry, payload.targetCountry, mode).length);
-  const topCompetitors = Object.entries(competitorCounter)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
-    .map(([name, mentionCount]) => ({
-      name,
-      mentionCount,
-      appearanceRate: Math.round((mentionCount / totalPromptCount) * 100),
-      score: mentionCount,
-      relevanceScore: 0,
-      whyItAppears: `${name} appears in ${mentionCount}/${totalPromptCount} prompts.`,
-    }));
+  const competitorsFromPrompts = mentionsByPrompt
+    .flatMap((entry) => (Array.isArray(entry?.competitors) ? entry.competitors : []))
+    .filter(Boolean);
+
+  const totalPromptCount = Math.max(
+    1,
+    mentionsByPrompt.length ||
+      buildPrompts(payload.brandName, payload.industry, payload.targetCountry, mode)
+        .length
+  );
+
+  const topCompetitors = (apiCompetitors.length ? apiCompetitors : competitorsFromPrompts)
+        .map((item) => {
+          if (typeof item === "string") {
+            return {
+              name: item,
+              mentionCount: 1,
+              appearanceRate: Math.round((1 / totalPromptCount) * 100),
+              score: 1,
+              relevanceScore: 0,
+              whyItAppears: `${item} appears in AI comparisons.`,
+            };
+          }
+
+          const name = item?.name || item?.brand || "Unknown";
+          const mentionCount = Number(
+            item?.mentionCount ?? item?.count ?? item?.mentions ?? item?.score ?? 1
+          );
+          return {
+            name,
+            mentionCount,
+            appearanceRate: Math.round((mentionCount / totalPromptCount) * 100),
+            score: mentionCount,
+            relevanceScore: Number(item?.relevanceScore ?? 0),
+            whyItAppears:
+              item?.whyItAppears ||
+              `${name} appears in ${mentionCount}/${totalPromptCount} prompts.`,
+          };
+        })
+        .slice(0, 6);
 
   const sourceCounter = {};
   analyzedResponses.forEach((entry) => {
@@ -130,10 +148,15 @@ function mapAnalyzeResponse(response, payload, mode) {
     .filter(([, contribution]) => contribution > 0)
     .map(([channel, contribution]) => ({ channel, contribution }));
 
-  const visibilityScore = Number(analysis.visibilityScore ?? 0);
+  const visibilityScore = Number(normalizedAnalysis.visibilityScore ?? 0);
+  const totalMentions = Number(normalizedAnalysis.totalMentions ?? 0);
   const competitorPressureScore = Math.min(
     100,
-    Math.round((topCompetitors.reduce((sum, item) => sum + item.mentionCount, 0) / totalPromptCount) * 20)
+    Math.round(
+      (topCompetitors.reduce((sum, item) => sum + item.mentionCount, 0) /
+        totalPromptCount) *
+        20
+    )
   );
   const sourceConfidenceScore = Math.min(
     100,
@@ -180,7 +203,7 @@ function mapAnalyzeResponse(response, payload, mode) {
     topCompetitors,
     topSources,
     strategicNarrative: null,
-    biggestWeakness: `${payload.brandName} appears in only ${analysis.totalMentions || 0}/${totalPromptCount} analyzed responses.`,
+    biggestWeakness: `${payload.brandName} appears in only ${totalMentions}/${totalPromptCount} analyzed responses.`,
     strongestArea: topSources[0]?.source || "No dominant source signal",
     contentOpportunity: "Create decision-focused content for high-intent prompts.",
     competitorThreat: topCompetitors[0]
@@ -390,6 +413,7 @@ export default function AnalyticsDashboard({
   }, [initialMode]);
 
   const fetchAnalysis = useCallback(async () => {
+    console.log("ANALYSIS TRIGGERED", { brandName, mode });
     if (!brandName.trim()) {
       setError("Brand name is required.");
       return;
@@ -408,30 +432,61 @@ export default function AnalyticsDashboard({
         mode,
       };
 
+      const prompts = buildPrompts(
+        payload.brandName,
+        payload.industry,
+        payload.targetCountry,
+        mode
+      );
+
+      const requestBody = JSON.stringify({
+        brandName: payload.brandName,
+        prompts,
+      });
+
       const res = await fetch(ANALYZE_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          brandName: payload.brandName,
-          prompts: buildPrompts(payload.brandName, payload.industry, payload.targetCountry, mode),
-          analysisType: mode === "full" ? "comparison" : "generic",
-        }),
+        body: requestBody,
       });
 
-      const raw = await res.json();
+      let apiResponse = await res.json().catch(() => null);
 
-      // Check for structured error response
-      if (raw.success === false) {
-        const errorMsg = raw.error || "Analysis failed";
-        const details = raw.details ? ` (${raw.details})` : "";
-        throw new Error(`${errorMsg}${details}`);
-      }
+      console.log("RAW RESPONSE", apiResponse);
 
       if (!res.ok) {
-        throw new Error("Analysis pipeline failed. Please retry.");
+        console.log("Retrying...");
+        await new Promise((r) => setTimeout(r, 2000));
+        const retryRes = await fetch(ANALYZE_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+        });
+        apiResponse = await retryRes.json().catch(() => null);
+        console.log("RAW RESPONSE (retry)", apiResponse);
       }
 
-      const mapped = mapAnalyzeResponse(raw, payload, mode);
+      if (!apiResponse) {
+        throw new Error("Empty response from server.");
+      }
+
+      const data = apiResponse;
+      const visibilityScore = data.visibilityScore || 0;
+      const competitors = data.competitors || [];
+      const mentions = data.totalMentions || 0;
+
+      // If valid data exists, never show error
+      if (visibilityScore || competitors.length || mentions) {
+        setError("");
+      } else if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const mapped = mapAnalyzeResponse(
+        { ...data, visibilityScore, competitors, totalMentions: mentions },
+        payload,
+        mode
+      );
 
       if (mode === "quick") {
         mapped.summaryInsight =
