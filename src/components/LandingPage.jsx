@@ -14,7 +14,7 @@ const trustBadges = [
   "Real-time updates",
 ];
 
-export default function LandingPage() {
+export default function LandingPage({ onAnalyze, onSeeDemo }) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.16),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(59,130,246,0.18),transparent_35%),radial-gradient(circle_at_50%_80%,rgba(2,132,199,0.14),transparent_45%)]" />
@@ -36,10 +36,16 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            <button className="rounded-xl bg-cyan-400 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300">
+            <button
+              onClick={onAnalyze}
+              className="rounded-xl bg-cyan-400 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
+            >
               Analyze My Brand
             </button>
-            <button className="rounded-xl border border-slate-600 bg-slate-800/90 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-800">
+            <button
+              onClick={onSeeDemo}
+              className="rounded-xl border border-slate-600 bg-slate-800/90 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
+            >
               See Demo
             </button>
           </div>
@@ -164,7 +170,10 @@ export default function LandingPage() {
 
         <section className="mt-14 rounded-3xl border border-slate-800 bg-gradient-to-r from-slate-900 to-slate-800 p-8 text-center">
           <h2 className="text-3xl font-bold text-white">Start your analysis now</h2>
-          <button className="mt-6 rounded-xl bg-cyan-400 px-8 py-3 text-base font-bold text-slate-950 transition hover:bg-cyan-300">
+          <button
+            onClick={onAnalyze}
+            className="mt-6 rounded-xl bg-cyan-400 px-8 py-3 text-base font-bold text-slate-950 transition hover:bg-cyan-300"
+          >
             Analyze My Brand
           </button>
         </section>

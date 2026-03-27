@@ -13,9 +13,191 @@ import {
 } from "recharts";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { ANALYZE_API_URL } from "../api";
 
-const API_BASE_URL =
-  (process.env.REACT_APP_API_URL || "").replace(/\/+$/, "") || "";
+const SOURCE_TYPE_PATTERNS = {
+  media: /techcrunch|forbes|wired|venturebeat|bloomberg|cnbc|businessinsider|theinformation/,
+  community: /reddit|quora|medium|substack|discord/,
+  industry: /g2|capterra|insider|journal|association|report|review/,
+};
+
+function toDomainList(text) {
+  if (!text || typeof text !== "string") return [];
+  const urlRegex = /https?:\/\/[^\s]+|www\.[^\s]+|[a-z0-9-]+\.[a-z]{2,}/gi;
+  const matches = text.match(urlRegex) || [];
+  return matches
+    .map((raw) => raw.replace(/[\],;.!?)]+$/, ""))
+    .map((raw) => {
+      try {
+        const normalized = raw.startsWith("http") ? raw : `https://${raw}`;
+        return new URL(normalized).hostname.replace(/^www\./, "").toLowerCase();
+      } catch {
+        return raw.replace(/^www\./, "").toLowerCase();
+      }
+    })
+    .filter(Boolean);
+}
+
+function classifySource(domain) {
+  if (SOURCE_TYPE_PATTERNS.media.test(domain)) return "media";
+  if (SOURCE_TYPE_PATTERNS.community.test(domain)) return "community";
+  if (SOURCE_TYPE_PATTERNS.industry.test(domain)) return "industry";
+  return "product";
+}
+
+function buildPrompts(brandName, industry, targetCountry, mode) {
+  const locationSuffix = targetCountry && targetCountry !== "Global" ? ` in ${targetCountry}` : "";
+
+  const fullPrompts = [
+    `Which ${industry} brands are most recommended by AI assistants${locationSuffix}?`,
+    `Compare ${brandName} with top ${industry} alternatives${locationSuffix}.`,
+    `What are the best ${industry} tools for growing companies${locationSuffix}?`,
+    `How does ${brandName} perform against competitors in reliability and pricing${locationSuffix}?`,
+    `What ${industry} products are most trusted for enterprise buyers${locationSuffix}?`,
+    `Which companies are most cited in ${industry} AI answers${locationSuffix}?`,
+    `What are the strongest alternatives to ${brandName} in ${industry}${locationSuffix}?`,
+    `How should buyers choose between ${brandName} and competitors${locationSuffix}?`,
+    `What content themes increase AI visibility for ${industry} brands${locationSuffix}?`,
+    `What sources influence AI recommendations in ${industry}${locationSuffix}?`,
+    `Which brands dominate comparison queries in ${industry}${locationSuffix}?`,
+    `What decision factors make one ${industry} brand rank above another${locationSuffix}?`,
+  ];
+
+  if (mode === "quick") {
+    return fullPrompts.slice(0, 3);
+  }
+
+  return fullPrompts;
+}
+
+function mapAnalyzeResponse(response, payload, mode) {
+  const analysis = response?.data ?? response ?? {};
+  const mentionsByPrompt = Array.isArray(analysis.mentionsByPrompt)
+    ? analysis.mentionsByPrompt
+    : [];
+  const analyzedResponses = Array.isArray(analysis.analyzedResponses)
+    ? analysis.analyzedResponses
+    : [];
+
+  const competitorCounter = {};
+  mentionsByPrompt.forEach((entry) => {
+    const competitors = Array.isArray(entry.competitors) ? entry.competitors : [];
+    competitors.forEach((name) => {
+      competitorCounter[name] = (competitorCounter[name] || 0) + 1;
+    });
+  });
+
+  const totalPromptCount = Math.max(1, mentionsByPrompt.length || buildPrompts(payload.brandName, payload.industry, payload.targetCountry, mode).length);
+  const topCompetitors = Object.entries(competitorCounter)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name, mentionCount]) => ({
+      name,
+      mentionCount,
+      appearanceRate: Math.round((mentionCount / totalPromptCount) * 100),
+      score: mentionCount,
+      relevanceScore: 0,
+      whyItAppears: `${name} appears in ${mentionCount}/${totalPromptCount} prompts.`,
+    }));
+
+  const sourceCounter = {};
+  analyzedResponses.forEach((entry) => {
+    const text = entry?.response || "";
+    toDomainList(text).forEach((domain) => {
+      sourceCounter[domain] = (sourceCounter[domain] || 0) + 1;
+    });
+  });
+
+  const topSources = Object.entries(sourceCounter)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([domain, mentionCount]) => ({
+      name: domain,
+      source: domain,
+      type: classifySource(domain),
+      confidence: mentionCount >= 3 ? "high" : mentionCount >= 2 ? "medium" : "low",
+      inferred: false,
+      mentionCount,
+      score: mentionCount,
+    }));
+
+  const channelAccumulator = { media: 0, community: 0, industry: 0, product: 0 };
+  topSources.forEach((src) => {
+    channelAccumulator[src.type] += src.mentionCount;
+  });
+
+  const channelPerformance = Object.entries(channelAccumulator)
+    .filter(([, contribution]) => contribution > 0)
+    .map(([channel, contribution]) => ({ channel, contribution }));
+
+  const visibilityScore = Number(analysis.visibilityScore ?? 0);
+  const competitorPressureScore = Math.min(
+    100,
+    Math.round((topCompetitors.reduce((sum, item) => sum + item.mentionCount, 0) / totalPromptCount) * 20)
+  );
+  const sourceConfidenceScore = Math.min(
+    100,
+    Math.round((topSources.reduce((sum, item) => sum + item.mentionCount, 0) / totalPromptCount) * 25)
+  );
+  const visibilityRiskScore = Math.max(
+    0,
+    Math.min(100, Math.round(100 - visibilityScore + competitorPressureScore * 0.4))
+  );
+
+  const sourceConfidence =
+    sourceConfidenceScore >= 70 ? "high" : sourceConfidenceScore >= 40 ? "medium" : "low";
+
+  const recommendations = [
+    `Increase ${payload.industry} comparison content for ${payload.brandName}.`,
+    "Publish source-backed pages AI systems can cite directly.",
+    "Track visibility weekly and iterate high-intent query coverage.",
+  ];
+
+  const trend = mentionsByPrompt.slice(0, 6).map((entry, idx) => ({
+    month: `P${idx + 1}`,
+    total: entry?.mentions || 0,
+  }));
+
+  return {
+    brandName: payload.brandName,
+    industry: payload.industry,
+    country: payload.targetCountry,
+    score: visibilityScore,
+    prevScore: undefined,
+    coverage: visibilityScore,
+    efficiency: Math.max(0, Math.min(100, 100 - visibilityRiskScore)),
+    competitors: topCompetitors.length,
+    sources: topSources.length,
+    chainedAIInsights: mentionsByPrompt.length,
+    summaryInsight:
+      topCompetitors.length > 0
+        ? `${payload.brandName} appears inconsistently in AI answers and is competing with ${topCompetitors[0].name}. Prioritize comparison coverage this week.`
+        : `${payload.brandName} has limited competitor signals in this sample. Expand prompt coverage to validate visibility opportunities.`,
+    recommendations,
+    trend,
+    channelPerformance,
+    potentialImpressionGain: Math.max(0, Math.min(100, Math.round(visibilityRiskScore * 0.8))),
+    topCompetitors,
+    topSources,
+    strategicNarrative: null,
+    biggestWeakness: `${payload.brandName} appears in only ${analysis.totalMentions || 0}/${totalPromptCount} analyzed responses.`,
+    strongestArea: topSources[0]?.source || "No dominant source signal",
+    contentOpportunity: "Create decision-focused content for high-intent prompts.",
+    competitorThreat: topCompetitors[0]
+      ? `${topCompetitors[0].name} appears in ${topCompetitors[0].mentionCount}/${totalPromptCount} prompts.`
+      : "No strong competitor detected in this run.",
+    confidenceLevel: mode === "quick" ? "low" : "high",
+    sourceConfidence,
+    sourceConfidenceScore,
+    competitorPressureScore,
+    visibilityScore,
+    visibilityRiskScore,
+    sourceDataMessage:
+      topSources.length > 0
+        ? ""
+        : "Traffic sources require deeper analysis. Run full analysis to unlock.",
+  };
+}
 
 const defaultData = {
   brandName: "",
@@ -210,14 +392,14 @@ export default function AnalyticsDashboard() {
         mode,
       };
 
-      const url = API_BASE_URL
-        ? `${API_BASE_URL}/full-analysis`
-        : "/full-analysis";
-
-      const res = await fetch(url, {
+      const res = await fetch(ANALYZE_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          brandName: payload.brandName,
+          prompts: buildPrompts(payload.brandName, payload.industry, payload.targetCountry, mode),
+          analysisType: mode === "full" ? "comparison" : "generic",
+        }),
       });
 
       const raw = await res.json();
@@ -233,72 +415,7 @@ export default function AnalyticsDashboard() {
         throw new Error("Analysis pipeline failed. Please retry.");
       }
 
-      const response = raw?.data ?? raw ?? {};
-
-      const mapped = {
-        brandName: payload.brandName,
-        industry: payload.industry,
-        country: payload.targetCountry,
-        score: response.globalScore ?? 0,
-        prevScore:
-          response.prevScore === undefined || response.prevScore === null
-            ? undefined
-            : response.prevScore,
-        coverage: response.countryScore ?? response.coverage ?? 0,
-        efficiency: response.efficiency ?? 0,
-        competitors:
-          Array.isArray(response.topCompetitors) ? response.topCompetitors.length : 0,
-        sources:
-          Array.isArray(response.topSources) ? response.topSources.length : 0,
-        chainedAIInsights: response.chainedAIInsights ?? 0,
-        summaryInsight:
-          response.summary?.insight ?? response.summaryInsight ?? "",
-        recommendations:
-          response.summary?.opportunities ??
-          response.recommendations ??
-          [],
-        trend: Array.isArray(response.trend) ? response.trend : [],
-        channelPerformance: Array.isArray(response.channelPerformance)
-          ? response.channelPerformance
-          : [],
-        potentialImpressionGain: response.potentialImpressionGain ?? 0,
-        topCompetitors: Array.isArray(response.topCompetitors)
-          ? response.topCompetitors.map((item) => ({
-              name: item.name ?? "Unknown",
-              mentionCount: item.mentionCount ?? item.count ?? item.mentions ?? item.score ?? 0,
-              appearanceRate: item.appearanceRate ?? 0,
-              relevanceScore: item.relevanceScore ?? 0,
-              whyItAppears: item.whyItAppears ?? "",
-              score: item.mentionCount ?? item.count ?? item.mentions ?? item.score ?? 0,
-            }))
-          : [],
-        topSources: Array.isArray(response.topSources)
-          ? response.topSources.map((item) => ({
-              name: item.source ?? item.name ?? "Unknown",
-              source: item.source ?? item.name ?? "Unknown",
-              type: item.type ?? "industry",
-              confidence: item.confidence ?? "low",
-              inferred: Boolean(item.inferred),
-              mentionCount: item.mentionCount ?? item.count ?? item.value ?? 0,
-              score: item.mentionCount ?? item.count ?? item.value ?? 0,
-            }))
-          : [],
-        strategicNarrative:
-          response.strategicNarrative ?? response.summary?.strategicNarrative ?? null,
-        biggestWeakness: response.biggestWeakness ?? "Analysis in progress",
-        strongestArea: response.strongestArea ?? "Analysis in progress",
-        contentOpportunity: response.contentOpportunity ?? "Unlock to discover opportunities",
-        competitorThreat: response.competitorThreat ?? "No significant threats detected",
-        confidenceLevel: response.confidenceLevel ?? (mode === "quick" ? "low" : "high"),
-        sourceConfidence: response.sourceConfidence ?? "low",
-        sourceConfidenceScore: response.sourceConfidenceScore ?? 0,
-        competitorPressureScore: response.competitorPressureScore ?? 0,
-        visibilityScore: response.visibilityScore ?? response.globalScore ?? 0,
-        visibilityRiskScore: response.visibilityRiskScore ?? 0,
-        sourceDataMessage:
-          response.sourceDataMessage ??
-          "Traffic sources require deeper analysis. Run full analysis to unlock.",
-      };
+      const mapped = mapAnalyzeResponse(raw, payload, mode);
 
       if (mode === "quick") {
         mapped.summaryInsight =
