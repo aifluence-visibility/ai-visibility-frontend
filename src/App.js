@@ -3,16 +3,37 @@ import LandingPage from "./components/LandingPage";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 
 function App() {
-  const [showDashboard, setShowDashboard] = useState(false);
+  const [view, setView] = useState("landing");
+  const [analysisParams, setAnalysisParams] = useState({
+    brandName: "",
+    mode: "quick",
+    autoRun: false,
+  });
 
-  if (showDashboard) {
-    return <AnalyticsDashboard />;
+  const handleStartAnalysis = ({ brandName, mode = "quick", autoRun = true }) => {
+    setAnalysisParams({ brandName, mode, autoRun });
+    setView("dashboard");
+  };
+
+  if (view === "dashboard") {
+    return (
+      <AnalyticsDashboard
+        initialBrandName={analysisParams.brandName}
+        initialMode={analysisParams.mode}
+        autoRun={analysisParams.autoRun}
+        onBackToLanding={() => setView("landing")}
+      />
+    );
   }
 
   return (
     <LandingPage
-      onAnalyze={() => setShowDashboard(true)}
-      onSeeDemo={() => setShowDashboard(true)}
+      onAnalyze={({ brandName, mode, autoRun }) =>
+        handleStartAnalysis({ brandName, mode, autoRun })
+      }
+      onSeeDemo={() =>
+        handleStartAnalysis({ brandName: "Stripe", mode: "quick", autoRun: true })
+      }
     />
   );
 }

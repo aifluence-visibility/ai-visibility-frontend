@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -334,13 +334,18 @@ const generatePDFReport = async (
   }
 };
 
-export default function AnalyticsDashboard() {
+export default function AnalyticsDashboard({
+  initialBrandName = "",
+  initialMode = "quick",
+  autoRun = false,
+  onBackToLanding,
+}) {
   const [data, setData] = useState(defaultData);
-  const [brandName, setBrandName] = useState("");
+  const [brandName, setBrandName] = useState(initialBrandName || "");
   const [industry, setIndustry] = useState("fintech");
   const [customIndustry, setCustomIndustry] = useState("");
   const [country, setCountry] = useState("Turkey");
-  const [mode, setMode] = useState("quick");
+  const [mode, setMode] = useState(initialMode || "quick");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -351,6 +356,7 @@ export default function AnalyticsDashboard() {
   const trendRef = useRef(null);
   const competitorsRef = useRef(null);
   const sourcesRef = useRef(null);
+  const autoRunRef = useRef(false);
 
   const loadFromLocal = () => {
     try {
@@ -373,7 +379,17 @@ export default function AnalyticsDashboard() {
     loadFromLocal();
   }, []);
 
-  const fetchAnalysis = async () => {
+  useEffect(() => {
+    if (!initialBrandName) return;
+    setBrandName(initialBrandName);
+  }, [initialBrandName]);
+
+  useEffect(() => {
+    if (!initialMode) return;
+    setMode(initialMode);
+  }, [initialMode]);
+
+  const fetchAnalysis = useCallback(async () => {
     if (!brandName.trim()) {
       setError("Brand name is required.");
       return;
@@ -447,7 +463,14 @@ export default function AnalyticsDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [brandName, country, customIndustry, industry, mode]);
+
+  useEffect(() => {
+    if (!autoRun || autoRunRef.current) return;
+    if (!brandName.trim()) return;
+    autoRunRef.current = true;
+    fetchAnalysis();
+  }, [autoRun, brandName, fetchAnalysis]);
 
   const handleShare = async () => {
     if (!navigator.clipboard) {
@@ -681,6 +704,14 @@ export default function AnalyticsDashboard() {
 
         <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
+            {typeof onBackToLanding === "function" ? (
+              <button
+                onClick={onBackToLanding}
+                className="mb-3 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                Back to Home
+              </button>
+            ) : null}
             <h2 className="text-2xl font-bold">AI Visibility Insights</h2>
             <p className="text-sm text-slate-600">
               Quick overview of AI market share, urgency, and actionable next

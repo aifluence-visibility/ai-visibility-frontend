@@ -1,23 +1,231 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 const features = [
-  "AI visibility tracking",
-  "Competitor analysis",
-  "Source analysis",
-  "Risk scoring",
-  "Actionable insights",
+  {
+    title: "AI Visibility Tracking",
+    description: "Measure where your brand is mentioned across AI-generated buying answers.",
+  },
+  {
+    title: "Competitor Pressure",
+    description: "See which brands replace you in AI responses and where you lose demand.",
+  },
+  {
+    title: "Source Intelligence",
+    description: "Understand the sources and channels shaping AI recommendations in your niche.",
+  },
+  {
+    title: "Actionable Playbooks",
+    description: "Get practical content and positioning recommendations your team can execute fast.",
+  },
 ];
 
 const trustBadges = [
-  "AI-generated insights",
-  "Data-driven analysis",
-  "Real-time updates",
+  "Live AI answer analysis",
+  "Prompt-level competitor tracking",
+  "Exportable stakeholder reports",
 ];
 
+function AnalysisModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  defaultMode = "quick",
+  defaultBrand = "",
+}) {
+  const [brandName, setBrandName] = useState(defaultBrand);
+  const [mode, setMode] = useState(defaultMode);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setBrandName(defaultBrand || "");
+    setMode(defaultMode || "quick");
+  }, [isOpen, defaultBrand, defaultMode]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h3 className="text-2xl font-bold text-white">Start Analysis</h3>
+            <p className="mt-1 text-sm text-slate-300">
+              Enter your brand and choose analysis depth.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 transition hover:text-slate-200"
+            aria-label="Close analysis modal"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <input
+            value={brandName}
+            onChange={(e) => setBrandName(e.target.value)}
+            placeholder="Brand name (e.g. Stripe)"
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+          />
+
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-700 p-1">
+            <button
+              type="button"
+              onClick={() => setMode("quick")}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                mode === "quick"
+                  ? "bg-cyan-400 text-slate-950"
+                  : "bg-transparent text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              Quick Analysis
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("full")}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                mode === "full"
+                  ? "bg-cyan-400 text-slate-950"
+                  : "bg-transparent text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              Full Analysis
+            </button>
+          </div>
+
+          <button
+            onClick={() => onSubmit({ brandName, mode, autoRun: true })}
+            className="w-full rounded-xl bg-cyan-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
+          >
+            Analyze Now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoginModal({ isOpen, onClose, onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h3 className="text-2xl font-bold text-white">Login</h3>
+            <p className="mt-1 text-sm text-slate-300">
+              Access your saved reports and team workspace.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 transition hover:text-slate-200"
+            aria-label="Close login modal"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            placeholder="Email"
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+          />
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            placeholder="Password"
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+          />
+
+          <button
+            onClick={() => onLogin({ email, password })}
+            className="w-full rounded-xl bg-cyan-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPage({ onAnalyze, onSeeDemo }) {
+  const [isAnalysisOpen, setAnalysisOpen] = useState(false);
+  const [isLoginOpen, setLoginOpen] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState("quick");
+  const [analysisDefaultBrand, setAnalysisDefaultBrand] = useState("");
+  const [user, setUser] = useState(null);
+
+  const loginLabel = useMemo(() => {
+    if (!user) return "Login";
+    return user.email || "My Workspace";
+  }, [user]);
+
+  const openAnalysis = (mode = "quick", brand = "") => {
+    setAnalysisMode(mode);
+    setAnalysisDefaultBrand(brand);
+    setAnalysisOpen(true);
+  };
+
+  const submitAnalysis = ({ brandName, mode, autoRun }) => {
+    if (!brandName?.trim()) return;
+    setAnalysisOpen(false);
+    onAnalyze({ brandName: brandName.trim(), mode, autoRun });
+  };
+
+  const handleLogin = ({ email }) => {
+    if (!email?.trim()) return;
+    setUser({ email: email.trim() });
+    setLoginOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.16),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(59,130,246,0.18),transparent_35%),radial-gradient(circle_at_50%_80%,rgba(2,132,199,0.14),transparent_45%)]" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_10%_10%,rgba(34,211,238,0.14),transparent_36%),radial-gradient(circle_at_90%_0%,rgba(14,165,233,0.14),transparent_38%),radial-gradient(circle_at_50%_100%,rgba(56,189,248,0.09),transparent_45%)]" />
+
+      <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 md:px-10">
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="text-lg font-extrabold tracking-tight text-white"
+          >
+            AI Visibility
+          </button>
+
+          <nav className="hidden items-center gap-6 md:flex">
+            <a href="#features" className="text-sm font-medium text-slate-300 transition hover:text-white">
+              Features
+            </a>
+            <a href="#pricing" className="text-sm font-medium text-slate-300 transition hover:text-white">
+              Pricing
+            </a>
+            <button
+              onClick={() => setLoginOpen(true)}
+              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
+            >
+              {loginLabel}
+            </button>
+          </nav>
+
+          <button
+            onClick={() => openAnalysis("quick")}
+            className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
+          >
+            Quick Analysis
+          </button>
+        </div>
+      </header>
 
       <main className="relative mx-auto max-w-6xl px-6 py-10 md:px-10 md:py-14">
         <section className="overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/70 p-8 shadow-2xl backdrop-blur md:p-12">
@@ -28,7 +236,7 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
             You are losing visibility in AI search.
           </h1>
           <p className="mt-5 max-w-2xl text-lg text-slate-300 md:text-xl">
-            Your brand is missing in X% of AI-generated answers.
+            Measure your share in AI answers and recover demand before competitors absorb it.
           </p>
 
           <div className="mt-7 inline-flex items-center rounded-xl border border-rose-300/25 bg-rose-500/15 px-4 py-2">
@@ -37,10 +245,10 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
 
           <div className="mt-8 flex flex-wrap gap-3">
             <button
-              onClick={onAnalyze}
+              onClick={() => openAnalysis("quick")}
               className="rounded-xl bg-cyan-400 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
             >
-              Analyze My Brand
+              Markami Analiz Et
             </button>
             <button
               onClick={onSeeDemo}
@@ -51,18 +259,15 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
           </div>
         </section>
 
-        <section className="mt-14 grid gap-6 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-lg font-semibold text-white">Search behavior changed</h2>
-            <p className="mt-2 text-sm text-slate-300">People ask AI first. They skip Google.</p>
-          </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-lg font-semibold text-white">Brands are invisible</h2>
-            <p className="mt-2 text-sm text-slate-300">If AI does not mention your brand, you lose demand before visits happen.</p>
-          </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-lg font-semibold text-white">Competitors take traffic</h2>
-            <p className="mt-2 text-sm text-slate-300">Every missing mention is discovery traffic captured by someone else.</p>
+        <section id="features" className="mt-14 rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+          <h2 className="text-2xl font-bold text-white">Built for AI-Era Growth Teams</h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {features.map((feature) => (
+              <div key={feature.title} className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+                <p className="text-base font-semibold text-white">{feature.title}</p>
+                <p className="mt-2 text-sm text-slate-300">{feature.description}</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -75,83 +280,47 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
             </div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
               <p className="text-xs font-bold uppercase tracking-wide text-cyan-300">Step 2</p>
-              <p className="mt-2 text-base font-semibold text-white">We analyze AI responses</p>
+              <p className="mt-2 text-base font-semibold text-white">Run quick or full scan</p>
             </div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
               <p className="text-xs font-bold uppercase tracking-wide text-cyan-300">Step 3</p>
-              <p className="mt-2 text-base font-semibold text-white">Get actionable insights</p>
+              <p className="mt-2 text-base font-semibold text-white">View live visibility insights</p>
             </div>
           </div>
         </section>
 
-        <section className="mt-14">
-          <h2 className="text-2xl font-bold text-white">Product preview</h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Visibility score</p>
-              <p className="mt-2 text-3xl font-bold text-cyan-300">42%</p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Competitors</p>
-              <p className="mt-2 text-sm text-slate-200">Stripe, PayPal, Adyen</p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Traffic sources</p>
-              <p className="mt-2 text-sm text-slate-200">stripe.com, techcrunch.com</p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Risk score</p>
-              <p className="mt-2 text-3xl font-bold text-rose-300">82/100</p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Insights</p>
-              <p className="mt-2 text-sm text-slate-200">Problem detected. Action plan ready.</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-14 rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
-          <h2 className="text-2xl font-bold text-white">Why it matters</h2>
-          <div className="mt-4 space-y-2 text-slate-300">
-            <p>AI search is growing fast.</p>
-            <p>If you are not mentioned, you do not exist.</p>
-            <p>Early movers win the category.</p>
-          </div>
-        </section>
-
-        <section className="mt-14 rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
-          <h2 className="text-2xl font-bold text-white">Features</h2>
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {features.map((feature) => (
-              <div key={feature} className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-200">
-                {feature}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-14 rounded-3xl border border-slate-800 bg-slate-900/60 p-8">
+        <section id="pricing" className="mt-14 rounded-3xl border border-slate-800 bg-slate-900/60 p-8">
           <h2 className="text-2xl font-bold text-white">Pricing</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <article className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <article className="rounded-2xl border border-slate-700 bg-slate-900 p-6">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Free</p>
               <h3 className="mt-2 text-2xl font-bold text-white">Quick Analysis</h3>
               <ul className="mt-4 space-y-2 text-sm text-slate-300">
-                <li>Quick analysis</li>
-                <li>Limited data</li>
-                <li>Low confidence</li>
+                <li>3 prompt scan</li>
+                <li>Core score and risk view</li>
+                <li>Starter recommendations</li>
               </ul>
+              <button
+                onClick={() => openAnalysis("quick")}
+                className="mt-6 rounded-xl border border-cyan-300/50 bg-cyan-400/15 px-5 py-3 text-sm font-bold text-cyan-200 transition hover:bg-cyan-400/25"
+              >
+                Quick Analysis
+              </button>
             </article>
+
             <article className="rounded-2xl border border-cyan-300/40 bg-cyan-500/10 p-6">
               <p className="text-xs font-bold uppercase tracking-wide text-cyan-300">Paid</p>
               <h3 className="mt-2 text-2xl font-bold text-white">Full Analysis</h3>
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
-                <li>Full analysis</li>
-                <li>Deep insights</li>
-                <li>High confidence</li>
+                <li>Deep prompt coverage</li>
                 <li>Competitor intelligence</li>
+                <li>Source confidence and trends</li>
+                <li>Export-ready reporting</li>
               </ul>
-              <button className="mt-6 rounded-xl bg-cyan-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300">
+              <button
+                onClick={() => openAnalysis("full")}
+                className="mt-6 rounded-xl bg-cyan-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
+              >
                 Unlock Full Analysis
               </button>
             </article>
@@ -170,14 +339,31 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
 
         <section className="mt-14 rounded-3xl border border-slate-800 bg-gradient-to-r from-slate-900 to-slate-800 p-8 text-center">
           <h2 className="text-3xl font-bold text-white">Start your analysis now</h2>
+          <p className="mt-3 text-sm text-slate-300">
+            Launch a quick scan in seconds and move directly into your live dashboard.
+          </p>
           <button
-            onClick={onAnalyze}
+            onClick={() => openAnalysis("quick")}
             className="mt-6 rounded-xl bg-cyan-400 px-8 py-3 text-base font-bold text-slate-950 transition hover:bg-cyan-300"
           >
-            Analyze My Brand
+            Markami Analiz Et
           </button>
         </section>
       </main>
+
+      <AnalysisModal
+        isOpen={isAnalysisOpen}
+        onClose={() => setAnalysisOpen(false)}
+        onSubmit={submitAnalysis}
+        defaultMode={analysisMode}
+        defaultBrand={analysisDefaultBrand}
+      />
+
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setLoginOpen(false)}
+        onLogin={handleLogin}
+      />
     </div>
   );
 }
