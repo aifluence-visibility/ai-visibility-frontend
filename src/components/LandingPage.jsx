@@ -430,10 +430,12 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/8 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-cyan-200">
                 Premium AI growth platform
               </div>
-              <h1 className="mt-8 max-w-4xl text-5xl font-black tracking-[-0.07em] text-white sm:text-6xl lg:text-7xl">
-                You are losing traffic to AI every day.
+              <h1 className="mx-auto mt-8 max-w-[800px] text-center text-4xl font-semibold leading-[1.15] tracking-[-0.02em] text-white sm:text-5xl lg:text-[3.5rem]">
+                You are losing traffic
+                <br />
+                to AI every day.
               </h1>
-              <p className="mt-6 max-w-2xl text-xl leading-8 text-slate-300">
+              <p className="mx-auto mt-6 max-w-[800px] text-center text-lg font-normal leading-8 text-slate-400 sm:text-xl">
                 Your competitors are being recommended by AI tools — and you are not.
               </p>
               <div className="mt-10">
