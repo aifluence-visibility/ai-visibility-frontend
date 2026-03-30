@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { GlassCard, SectionHeader } from "../../shared/components";
 import { useWorkspace } from "../../shared/hooks/useWorkspace";
+import { PRICING_PLANS } from "../../shared/utils/pricing";
 
 const ROLES = ["owner", "manager", "analyst", "content"];
 const ROLE_BADGES = {
@@ -87,25 +88,32 @@ export default function TeamPage() {
       <GlassCard className="p-6">
         <SectionHeader icon="💎" title="Plan" subtitle="Choose the right plan for your team" />
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-          {[
-            { id: "free", name: "Free", price: "$0", features: ["1 user", "Basic analysis", "Dashboard only"] },
-            { id: "pro", name: "Pro", price: "$49/mo", features: ["5 users", "Strategy + Content", "Actions + Growth tracking"] },
-            { id: "enterprise", name: "Enterprise", price: "Custom", features: ["50 users", "Portfolio + Reports", "Team management"] },
-          ].map(p => (
+          {PRICING_PLANS.map(p => (
             <button
               key={p.id}
               onClick={() => updatePlan(p.id)}
               disabled={loading}
               className={`rounded-xl border p-5 text-left transition-all ${
                 plan === p.id
-                  ? "border-cyan-500/50 bg-cyan-500/10 ring-1 ring-cyan-500/20"
-                  : "border-slate-700/50 bg-slate-900/40 hover:border-slate-600/50"
+                  ? p.id === "pro"
+                    ? "border-amber-400/50 bg-amber-400/10 ring-1 ring-amber-400/30 shadow-lg shadow-amber-500/10"
+                    : "border-cyan-500/50 bg-cyan-500/10 ring-1 ring-cyan-500/20"
+                  : p.id === "pro"
+                    ? "border-amber-400/20 bg-gradient-to-b from-amber-400/[0.08] to-slate-900/40 hover:border-amber-400/40"
+                    : "border-slate-700/50 bg-slate-900/40 hover:border-slate-600/50"
               }`}
             >
+              {p.badge ? <div className="mb-3 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-200">{p.badge}</div> : null}
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-white">{p.name}</span>
-                <span className="text-xs font-bold text-cyan-400">{p.price}</span>
+                <span className={`text-xs font-bold ${p.id === "pro" ? "text-amber-200" : "text-cyan-400"}`}>{p.price}{p.cadence}</span>
               </div>
+              {p.premiumFeature ? (
+                <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-200">Premium feature</p>
+                  <p className="mt-1 text-xs font-bold text-white">{p.premiumFeature}</p>
+                </div>
+              ) : null}
               <ul className="mt-2 space-y-1">
                 {p.features.map(f => (
                   <li key={f} className="text-xs text-slate-400">✓ {f}</li>

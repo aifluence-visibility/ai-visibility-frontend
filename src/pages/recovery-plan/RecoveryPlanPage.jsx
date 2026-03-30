@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { GlassCard, PaywallSection } from "../../shared/components";
+import { GlassCard } from "../../shared/components";
 
 const DAY_COLORS = [
   { border: "border-red-500/30", bg: "bg-red-500/10", accent: "text-red-400", glow: "bg-red-500", badge: "bg-red-500/15 text-red-400 border-red-500/30" },
@@ -34,6 +34,10 @@ export default function RecoveryPlanSection({ plan, vis, shock, brandName, locke
         <div className="flex items-start gap-3 mb-4">
           <span className="text-lg mt-0.5">📋</span>
           <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-200">Most Valuable</span>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300">Pro feature</span>
+            </div>
             <h3 className="text-base font-black text-white">7-Day AI Visibility Recovery Plan</h3>
             <p className="text-xs text-slate-400 mt-0.5">Personalized execution plan based on {brandName}'s analysis</p>
           </div>
@@ -68,47 +72,60 @@ export default function RecoveryPlanSection({ plan, vis, shock, brandName, locke
       />
 
       {/* ── Days 2-7 — paywalled ── */}
-      <PaywallSection
-        locked={locked}
-        title={`Unlock ${brandName}'s full 7-day recovery plan to fix it`}
-        cta="Unlock Full Plan"
-        onUnlock={onUnlock}
-      >
-        <div className="space-y-4">
+      <div className="relative">
+        <div className={locked ? "space-y-4 blur-[6px] pointer-events-none select-none" : "space-y-4"}>
           {plan.slice(1).map((day, i) => (
             <DayCard
               key={day.day}
               day={day}
-              index={i + 1}
               color={DAY_COLORS[i + 1]}
               expanded={!!expandedDays[i + 1]}
               onToggle={() => toggleDay(i + 1)}
             />
           ))}
         </div>
-      </PaywallSection>
+        {locked ? (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-[#0B0F1A]/64 px-4 text-center backdrop-blur-[2px]">
+            <div className="max-w-md rounded-3xl border border-amber-400/20 bg-slate-950/85 px-6 py-6 shadow-2xl shadow-amber-500/10">
+              <div className="mx-auto mb-3 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">Most Valuable</div>
+              <p className="text-lg font-black text-white">Your recovery plan is ready. Unlock to recover your traffic.</p>
+              <p className="mt-2 text-sm text-slate-400">Days 2–7 reveal the full premium execution path for {brandName}.</p>
+              <button
+                onClick={onUnlock}
+                className="mt-5 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 px-6 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl"
+              >
+                Unlock for $19/month
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       {/* ── Sticky CTA bar ── */}
-      <GlassCard className="p-5 border border-red-500/20" glow="bg-red-500">
+      <GlassCard className={`p-5 border ${locked ? "border-amber-400/20" : "border-emerald-500/20"}`} glow={locked ? "bg-amber-500" : "bg-emerald-500"}>
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-center md:text-left">
-            <p className="text-sm font-bold text-white">Start recovering your traffic today</p>
-            <p className="text-xs text-slate-400 mt-0.5">You are losing traffic every day you are not visible in AI search.</p>
-            <p className="text-[11px] text-red-400/90 font-medium mt-1">Every day you delay, competitors take more visibility.</p>
+            <p className="text-sm font-bold text-white">{locked ? "Your recovery plan is ready. Unlock to recover your traffic." : "Your full recovery plan is unlocked."}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{locked ? "The premium 7-Day Recovery Plan is the fastest path to reclaim lost AI demand." : "Use the full 7-day sequence to execute, track progress, and recover visibility."}</p>
+            <p className={`text-[11px] font-medium mt-1 ${locked ? "text-amber-200/90" : "text-emerald-300/90"}`}>{locked ? "Add the 7-Day Recovery Plan for just $19/month." : "Keep moving day by day until the visibility gap closes."}</p>
           </div>
-          <button
-            onClick={onUnlock}
-            className="rounded-xl bg-gradient-to-r from-red-600 to-orange-500 px-8 py-3 text-sm font-bold text-white shadow-lg hover:shadow-red-500/25 hover:shadow-xl transition-all whitespace-nowrap shrink-0"
-          >
-            Unlock Full 7-Day Plan
-          </button>
+          {locked ? (
+            <button
+              onClick={onUnlock}
+              className="rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 px-8 py-3 text-sm font-black text-slate-950 shadow-lg hover:shadow-amber-500/25 hover:shadow-xl transition-all whitespace-nowrap shrink-0"
+            >
+                Unlock for $19/month
+            </button>
+          ) : (
+            <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-emerald-300">Full plan active</div>
+          )}
         </div>
       </GlassCard>
     </div>
   );
 }
 
-function DayCard({ day, index, color, expanded, onToggle }) {
+function DayCard({ day, color, expanded, onToggle }) {
   const impactStyle = IMPACT_COLORS[day.impactLevel] || IMPACT_COLORS.medium;
 
   return (

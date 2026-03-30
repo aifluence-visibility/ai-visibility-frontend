@@ -1,718 +1,547 @@
-import React, { useEffect, useRef, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, AreaChart, Area } from "recharts";
+import React, { useRef, useState } from "react";
 import { LumioMark } from "../shared/components/LumioLogo";
 
-/* ══════════════════════════════ STATIC DATA ══════════════════════════════ */
+const TRUST_MARKS = ["NOVA", "PULSE", "STACK", "FORGE", "ATLAS", "LAYER"];
 
-const features = [
+const PROBLEM_CARDS = [
   {
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-      </svg>
-    ),
-    title: "Lumio Score",
-    desc: "Measure exactly where and how often your brand appears in ChatGPT, Google AI & Perplexity answers.",
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
+    title: "AI tools recommend competitors",
+    body: "High-intent prompts now resolve inside ChatGPT, Perplexity, and Google AI. If competitors appear first, demand never reaches your site.",
+    accent: "from-red-500/25 to-orange-500/10",
+    border: "border-red-500/20",
+    icon: "01",
   },
   {
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-      </svg>
-    ),
-    title: "Competitor Intelligence",
-    desc: "See which brands steal your share in AI responses — and the exact queries where they dominate.",
-    color: "text-cyan-400",
-    bg: "bg-cyan-500/10",
+    title: "Your brand is not mentioned",
+    body: "AI systems build recommendations from authority signals, citations, and structured positioning. Missing signals mean missing mentions.",
+    accent: "from-cyan-500/20 to-blue-500/10",
+    border: "border-cyan-500/20",
+    icon: "02",
   },
   {
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-      </svg>
-    ),
-    title: "Query-Level Insights",
-    desc: "Understand which high-intent buying queries mention competitors instead of you.",
-    color: "text-emerald-400",
-    bg: "bg-emerald-500/10",
-  },
-  {
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.841m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-      </svg>
-    ),
-    title: "Recovery Playbook",
-    desc: "Get a step-by-step content plan to win back AI recommendations in 30 days.",
-    color: "text-violet-400",
-    bg: "bg-violet-500/10",
+    title: "Traffic is silently lost",
+    body: "Customers think they completed research, competitors absorb the click, and your pipeline drops without a visible ranking change.",
+    accent: "from-emerald-500/20 to-teal-500/10",
+    border: "border-emerald-500/20",
+    icon: "03",
   },
 ];
 
-const howItWorks = [
-  { step: "01", title: "Enter your brand", desc: "Type your brand or domain. We auto-detect your industry and category.", time: "5 sec" },
-  { step: "02", title: "We analyze AI answers", desc: "Real prompts sent to ChatGPT, Google AI and Perplexity. We scan who gets recommended.", time: "~60 sec" },
-  { step: "03", title: "See how to win", desc: "Get your visibility score, competitor map, gaps, and an exact action plan.", time: "Instant" },
+const VALUE_PILLARS = [
+  {
+    title: "Visibility analysis",
+    body: "See where AI recommends your brand, where it skips you, and how visible you really are across commercial prompts.",
+    metric: "Visibility score",
+  },
+  {
+    title: "Competitor intelligence",
+    body: "Track which competitors dominate AI answers, how often they appear, and what content patterns help them win.",
+    metric: "Competitor share",
+  },
+  {
+    title: "Recovery plan",
+    body: "Move from diagnostics to execution with a prioritized plan built to recover lost visibility and traffic fast.",
+    metric: "7-day plan",
+  },
 ];
 
-const stats = [
-  { value: "70%", label: "of product discovery is shifting to AI", accent: "text-blue-400" },
-  { value: "3.2x", label: "more users trust AI over search results", accent: "text-cyan-400" },
-  { value: "40%", label: "of clicks never happen — AI answers directly", accent: "text-emerald-400" },
+const RECOVERY_DAYS = [
+  {
+    day: "Day 1",
+    title: "Fix brand positioning pages",
+    note: "Publish the page AI needs to understand what you do, who you serve, and why you win.",
+    impact: "+14 visibility points",
+  },
+  { day: "Day 2", title: "Capture comparison prompts", note: "Build competitor comparison assets for decision queries." },
+  { day: "Day 3", title: "Add citation-friendly proof", note: "Ship authority blocks, proof points, and structured statements." },
+  { day: "Day 4", title: "Rewrite commercial pages", note: "Align core pages to the prompts AI actually cites." },
+  { day: "Day 5", title: "Expand answer coverage", note: "Create FAQ and category pages for missing intents." },
+  { day: "Day 6", title: "Track gain by prompt", note: "Watch visibility recover at the query level." },
+  { day: "Day 7", title: "Lock in growth loop", note: "Turn wins into a repeatable AI growth system." },
 ];
 
-const faqItems = [
-  { q: "What is AI visibility?", a: "AI visibility measures how often your brand is recommended in AI-generated answers (ChatGPT, Google AI, Perplexity) when users ask buying questions in your category. Lumio tracks this for you." },
-  { q: "How is this different from SEO?", a: "SEO tracks search rankings. Lumio tracks whether AI recommends you. These are different systems — you can rank #1 on Google but be invisible in ChatGPT." },
-  { q: "How do you collect the data?", a: "We send real prompts to AI systems and analyze the responses for brand mentions, competitor references, and recommendation patterns." },
-  { q: "Can I track competitors?", a: "Yes. Every analysis shows which competitors appear in AI answers instead of you, their mention frequency, and why AI prefers them." },
-  { q: "Is it free?", a: "Your first quick analysis is completely free — no signup, no credit card. Pro features (full analysis, trend tracking, action plans) start at $49/mo." },
+const ADDON = { name: "7-Day Recovery Plan", monthlyPrice: 19 };
+
+const PRICING = [
+  {
+    name: "FREE",
+    price: 0,
+    cadence: "",
+    cta: "Analyze My Visibility",
+    features: ["3 analyses/month", "Basic insights", "Visibility score", "Competitor overview"],
+    recoveryPlan: null,
+  },
+  {
+    name: "PRO",
+    launchPrice: 29,
+    originalPrice: 49,
+    cadence: "/month",
+    cta: "Start recovering traffic",
+    badge: "Most valuable feature",
+    featured: true,
+    features: ["Full analysis", "Competitor insights", "Strategy recommendations", "Tracking", "Content generation"],
+    recoveryPlan: "optional",
+  },
+  {
+    name: "ENTERPRISE",
+    launchPrice: 299,
+    originalPrice: 499,
+    cadence: "/month",
+    cta: "Unlock your growth plan",
+    features: ["Everything in PRO", "Multi-brand", "Team features", "Reports & exports", "Priority support"],
+    recoveryPlan: "included",
+  },
 ];
 
-/* Demo chart data */
-const demoCompetitorData = [
-  { name: "Stripe", visibility: 72, fill: "#3B82F6" },
-  { name: "Square", visibility: 58, fill: "#06B6D4" },
-  { name: "PayPal", visibility: 45, fill: "#8B5CF6" },
-  { name: "Adyen", visibility: 31, fill: "#22C55E" },
-  { name: "You?", visibility: 8, fill: "#EF4444" },
-];
-
-const demoTrendData = [
-  { month: "Jan", competitor: 52, you: 22 },
-  { month: "Feb", competitor: 55, you: 20 },
-  { month: "Mar", competitor: 61, you: 18 },
-  { month: "Apr", competitor: 58, you: 15 },
-  { month: "May", competitor: 65, you: 12 },
-  { month: "Jun", competitor: 72, you: 8 },
-];
-
-const problemStats = [
-  { value: "0%", label: "Your Lumio score", color: "text-red-400", bar: "w-[4%] bg-red-500" },
-  { value: "72%", label: "Top competitor", color: "text-blue-400", bar: "w-[72%] bg-blue-500" },
-  { value: "~2,400", label: "Lost visitors / month", color: "text-amber-400", bar: "w-[60%] bg-amber-500" },
-  { value: "$18K", label: "Revenue at risk", color: "text-red-400", bar: "w-[45%] bg-red-500" },
-];
-
-/* ═════════════════════ SUB-COMPONENTS ═════════════════════ */
-
-/* Chart tooltip */
-const ChartTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
+function SectionIntro({ eyebrow, title, body, align = "center" }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-[#0F1420] px-3 py-2 text-xs shadow-xl">
-      <p className="font-semibold text-white">{label}</p>
-      {payload.map((p) => (
-        <p key={p.dataKey} style={{ color: p.color }} className="mt-0.5">{p.name}: {p.value}%</p>
+    <div className={align === "center" ? "mx-auto max-w-3xl text-center" : "max-w-2xl"}>
+      <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-300/80">{eyebrow}</p>
+      <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-white md:text-5xl">{title}</h2>
+      {body ? <p className="mt-4 text-base leading-7 text-slate-400 md:text-lg">{body}</p> : null}
+    </div>
+  );
+}
+
+function InputCta({ value, onChange, onSubmit, inputRef, buttonLabel, helperText, compact = false }) {
+  return (
+    <div className={compact ? "w-full" : "w-full max-w-2xl"}>
+      <div className={`rounded-[28px] border border-white/10 bg-white/[0.04] p-2 shadow-[0_20px_80px_rgba(11,19,36,0.55)] backdrop-blur-xl ${compact ? "" : "ring-1 ring-cyan-400/10"}`}>
+        <div className={`flex ${compact ? "flex-col gap-3 sm:flex-row sm:items-center" : "flex-col gap-3 md:flex-row md:items-center"}`}>
+          <div className="flex flex-1 items-center gap-3 rounded-[22px] bg-slate-950/50 px-5 py-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-xs font-black text-cyan-200">AI</div>
+            <input
+              ref={inputRef}
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") onSubmit();
+              }}
+              placeholder="Enter your brand name"
+              className="w-full bg-transparent text-base font-medium text-white placeholder:text-slate-500 focus:outline-none"
+            />
+          </div>
+          <button
+            onClick={onSubmit}
+            className="rounded-[22px] bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 px-7 py-4 text-sm font-black text-slate-950 shadow-[0_20px_45px_rgba(34,211,238,0.28)] transition duration-300 hover:scale-[1.01] hover:shadow-[0_24px_60px_rgba(34,211,238,0.38)]"
+          >
+            {buttonLabel}
+          </button>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-slate-500">{helperText}</p>
+    </div>
+  );
+}
+
+function TrustMark({ name }) {
+  return (
+    <div className="rounded-full border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-bold tracking-[0.24em] text-slate-500 transition duration-300 hover:border-white/20 hover:text-slate-300">
+      {name}
+    </div>
+  );
+}
+
+function BillingToggle({ billing, onChange }) {
+  return (
+    <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1">
+      {["monthly", "yearly"].map((cycle) => (
+        <button
+          key={cycle}
+          onClick={() => onChange(cycle)}
+          className={`rounded-full px-5 py-2.5 text-sm font-bold transition ${billing === cycle ? "bg-white text-slate-950 shadow" : "text-slate-400 hover:text-white"}`}
+        >
+          {cycle === "monthly" ? "Monthly" : (
+            <span className="flex items-center gap-2">
+              Yearly
+              <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-black text-emerald-300">Save 20%</span>
+            </span>
+          )}
+        </button>
       ))}
     </div>
   );
-};
+}
 
-/* Mini dashboard preview for hero right side */
-function HeroDashboardPreview() {
+function DemoMetric({ label, value, tone }) {
   return (
-    <div className="relative w-full max-w-md">
-      {/* Glow backdrop */}
-      <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-blue-600/20 via-cyan-500/10 to-emerald-500/10 blur-2xl" />
-
-      <div className="relative rounded-2xl border border-white/[0.08] bg-[#0C1222]/90 p-5 shadow-2xl backdrop-blur-xl">
-        {/* Score header */}
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Lumio Score</p>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-3xl font-black text-red-400">12</span>
-              <span className="text-sm font-semibold text-slate-500">/100</span>
-            </div>
-          </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10">
-            <span className="text-xs font-black text-red-400">!</span>
-          </div>
-        </div>
-
-        {/* Mini bar chart */}
-        <div className="h-[130px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={demoCompetitorData} barSize={20}>
-              <XAxis dataKey="name" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis hide domain={[0, 100]} />
-              <Bar dataKey="visibility" radius={[4, 4, 0, 0]}>
-                {demoCompetitorData.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} fillOpacity={entry.name === "You?" ? 1 : 0.7} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Bottom labels */}
-        <div className="mt-3 flex items-center justify-between rounded-lg border border-red-500/15 bg-red-500/[0.06] px-3 py-2">
-          <div className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
-            <span className="text-[10px] font-bold text-red-400">~$3,200/mo revenue at risk</span>
-          </div>
-          <span className="text-[10px] font-bold text-slate-500">8,200 lost users/mo</span>
-        </div>
-      </div>
+    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">{label}</p>
+      <p className={`mt-2 text-3xl font-black tracking-[-0.04em] ${tone}`}>{value}</p>
     </div>
   );
 }
 
-/* Analysis Modal */
-function AnalysisModal({ isOpen, onClose, onSubmit, defaultMode = "quick", defaultBrand = "" }) {
-  const [brandName, setBrandName] = useState(defaultBrand);
-  const [mode, setMode] = useState(defaultMode);
-  const [industry, setIndustry] = useState("");
-  const [country, setCountry] = useState("Global");
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setBrandName(defaultBrand || "");
-    setMode(defaultMode || "quick");
-    setIndustry("");
-    setCountry("Global");
-  }, [isOpen, defaultBrand, defaultMode]);
-
-  if (!isOpen) return null;
-
-  const handleSubmit = () => {
-    if (!brandName?.trim()) return;
-    onSubmit({ brandName, industry: industry || "auto", country, mode, autoRun: true });
-  };
-
+function ValueCard({ title, body, metric }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A0E1A]/85 p-4 backdrop-blur-md">
-      <div className="w-full max-w-lg rounded-2xl border border-white/[0.08] bg-[#0F1420] p-7 shadow-2xl shadow-blue-500/10">
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h3 className="text-2xl font-bold text-white">Analyze Your Brand</h3>
-            <p className="mt-1 text-sm text-slate-500">See your Lumio score in under 60 seconds.</p>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-slate-500 transition hover:bg-white/[0.05] hover:text-white" aria-label="Close">✕</button>
-        </div>
-
-        <div className="space-y-4">
-          <input
-            value={brandName}
-            onChange={(e) => setBrandName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
-            placeholder="Brand or domain (e.g. stripe.com)"
-            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-white placeholder:text-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-            autoFocus
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-600">Industry</label>
-              <select value={industry} onChange={(e) => setIndustry(e.target.value)} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-sm text-slate-300 focus:border-blue-500 focus:outline-none">
-                <option value="">Auto-detect</option>
-                <option value="fintech">Fintech</option>
-                <option value="ecommerce">E-commerce</option>
-                <option value="saas">SaaS</option>
-                <option value="ai">AI Tools</option>
-                <option value="healthcare">Healthcare</option>
-                <option value="education">Education</option>
-                <option value="real estate">Real Estate</option>
-                <option value="logistics">Logistics</option>
-                <option value="marketplace">Marketplace</option>
-                <option value="crypto">Crypto</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-600">Market</label>
-              <select value={country} onChange={(e) => setCountry(e.target.value)} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-sm text-slate-300 focus:border-blue-500 focus:outline-none">
-                <option value="Global">Global</option>
-                <option value="USA">USA</option>
-                <option value="UK">UK</option>
-                <option value="Germany">Germany</option>
-                <option value="Turkey">Turkey</option>
-                <option value="UAE">UAE</option>
-                <option value="India">India</option>
-                <option value="Canada">Canada</option>
-                <option value="Australia">Australia</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
-            {["quick", "full"].map((m) => (
-              <button key={m} type="button" onClick={() => setMode(m)} className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${mode === m ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"}`}>
-                {m === "quick" ? "Quick Preview" : "Full Analysis"}
-              </button>
-            ))}
-          </div>
-
-          <p className="text-xs text-slate-600">
-            {mode === "quick" ? "Quick preview — score + top competitors. ~30 seconds." : "Full analysis — all competitors, charts, sources & action plan. ~60 seconds."}
-          </p>
-
-          <button onClick={handleSubmit} className="w-full rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl hover:shadow-blue-500/30">
-            Analyze Now →
-          </button>
-        </div>
+    <div className="rounded-[28px] border border-white/8 bg-white/[0.03] p-7 shadow-[0_18px_50px_rgba(15,23,42,0.38)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-cyan-400/20">
+      <div className="flex items-center justify-between">
+        <p className="text-lg font-bold text-white">{title}</p>
+        <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">{metric}</span>
       </div>
+      <p className="mt-4 text-sm leading-7 text-slate-400">{body}</p>
     </div>
   );
 }
 
-/* FAQ Item */
-function FaqItem({ q, a }) {
-  const [open, setOpen] = useState(false);
+function PricingCard({ plan, billing, addOn, onAddOnChange, onCheckout, onStartFree }) {
+  const isFree = plan.price === 0;
+  const isYearly = billing === "yearly";
+  const baseMonthly = plan.launchPrice ?? 0;
+  const baseDisplay = isYearly ? Math.round(baseMonthly * 0.8) : baseMonthly;
+  const origMonthly = plan.originalPrice ?? 0;
+  const origDisplay = isYearly ? Math.round(origMonthly * 0.8) : origMonthly;
+  const addOnMonthly = ADDON.monthlyPrice;
+  const addOnDisplay = isYearly ? Math.round(addOnMonthly * 0.8) : addOnMonthly;
+  const showAddOnToggle = plan.recoveryPlan === "optional";
+  const addOnIncluded = plan.recoveryPlan === "included";
+  const addOnActive = showAddOnToggle ? addOn : addOnIncluded;
+  const totalDisplay = baseDisplay + (addOnActive ? addOnDisplay : 0);
+
   return (
-    <div className="border-b border-white/[0.06]">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between py-5 text-left">
-        <span className="pr-4 text-sm font-semibold text-white">{q}</span>
-        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/[0.08] text-xs text-slate-500 transition-transform ${open ? "rotate-45 border-blue-500/30 text-blue-400" : ""}`}>+</span>
+    <div className={`relative rounded-[30px] border p-7 shadow-[0_24px_80px_rgba(15,23,42,0.38)] backdrop-blur-xl ${plan.featured ? "border-amber-300/30 bg-gradient-to-b from-amber-300/12 via-cyan-500/10 to-white/[0.03]" : "border-white/8 bg-white/[0.03]"}`}>
+      {plan.badge ? (
+        <div className="absolute -top-3 left-6">
+          <span className="rounded-full border border-amber-300/30 bg-amber-300/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-950">{plan.badge}</span>
+        </div>
+      ) : null}
+      <p className={`text-[11px] font-black uppercase tracking-[0.24em] ${plan.featured ? "text-amber-200" : "text-slate-500"}`}>{plan.name}</p>
+
+      <div className="mt-5">
+        {isFree ? (
+          <div className="flex items-end gap-1">
+            <p className="text-4xl font-black tracking-[-0.05em] text-white">$0</p>
+            <p className="pb-1 text-sm font-semibold text-slate-500">forever</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-end gap-2">
+              <p className="text-4xl font-black tracking-[-0.05em] text-white">
+                ${addOnActive ? totalDisplay : baseDisplay}
+              </p>
+              <p className="pb-1 text-sm font-semibold text-slate-500">
+                {isYearly ? "/mo, billed yearly" : "/month"}
+              </p>
+            </div>
+            {origDisplay > 0 && (
+              <p className="mt-1 text-sm text-slate-500">
+                <span className="line-through">${origDisplay}/mo</span>
+                <span className="ml-2 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black text-emerald-300">Launch price</span>
+              </p>
+            )}
+            {addOnActive && showAddOnToggle && (
+              <p className="mt-1 text-[11px] text-slate-500">${baseDisplay} base + ${addOnDisplay} add-on</p>
+            )}
+          </>
+        )}
+      </div>
+
+      {showAddOnToggle && (
+        <div className="mt-5 rounded-[22px] border border-amber-300/20 bg-amber-300/[0.08] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-200">&#9733; Optional add-on</p>
+              <p className="mt-1 text-sm font-bold text-white">7-Day Recovery Plan</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">+${addOnDisplay}/month</p>
+            </div>
+            <button
+              onClick={() => onAddOnChange(!addOn)}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${addOn ? "bg-amber-400" : "bg-slate-700"}`}
+              role="switch"
+              aria-checked={addOn}
+            >
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${addOn ? "translate-x-5" : "translate-x-0.5"}`} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {addOnIncluded && (
+        <div className="mt-5 rounded-[22px] border border-emerald-400/20 bg-emerald-400/[0.08] p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">&#10003; Included</p>
+          <p className="mt-1 text-sm font-bold text-white">7-Day Recovery Plan</p>
+          <p className="mt-0.5 text-[11px] text-slate-400">Included at no extra cost</p>
+        </div>
+      )}
+
+      <ul className="mt-6 space-y-3">
+        {plan.features.map((feature) => (
+          <li key={feature} className="flex items-center gap-3 text-sm text-slate-300">
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${plan.featured ? "bg-amber-300/15 text-amber-200" : "bg-white/[0.08] text-slate-300"}`}>&#10003;</span>
+            {feature}
+          </li>
+        ))}
+      </ul>
+
+      <button
+        onClick={() => isFree ? onStartFree() : onCheckout(plan)}
+        className={`mt-8 w-full rounded-[20px] px-5 py-4 text-sm font-black transition duration-300 ${plan.featured ? "bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 text-slate-950 shadow-[0_20px_45px_rgba(245,158,11,0.28)] hover:shadow-[0_24px_60px_rgba(245,158,11,0.38)]" : "border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"}`}
+      >
+        {plan.cta}
       </button>
-      <div className={`overflow-hidden transition-all duration-300 ${open ? "max-h-40 pb-5" : "max-h-0"}`}>
-        <p className="text-sm text-slate-400 leading-relaxed">{a}</p>
+    </div>
+  );
+}
+
+function RecoveryDay({ item, locked = false }) {
+  return (
+    <div className={`rounded-3xl border border-white/10 bg-slate-950/45 p-5 ${locked ? "opacity-75" : ""}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">{item.day}</p>
+          <p className="mt-2 text-base font-bold text-white">{item.title}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">{item.note}</p>
+        </div>
+        {item.impact ? <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">{item.impact}</span> : null}
       </div>
     </div>
   );
 }
 
-/* ═══════════════════════════ LANDING PAGE ═══════════════════════════ */
+function CheckoutModal({ plan, billing, addOn, onClose, onConfirm }) {
+        const isYearly = billing === "yearly";
+        const baseMonthly = plan.launchPrice ?? 0;
+        const baseDisplay = isYearly ? Math.round(baseMonthly * 0.8) : baseMonthly;
+        const addOnMonthly = ADDON.monthlyPrice;
+        const addOnDisplay = isYearly ? Math.round(addOnMonthly * 0.8) : addOnMonthly;
+        const showAddOn = addOn && plan.recoveryPlan === "optional";
+        const addOnIncluded = plan.recoveryPlan === "included";
+        const total = baseDisplay + (showAddOn ? addOnDisplay : 0);
+
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#07111f]/85 p-6 backdrop-blur-xl">
+            <div className="w-full max-w-md rounded-[32px] border border-white/10 bg-[#0c1828] p-8 shadow-[0_40px_120px_rgba(2,8,23,0.65)]">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-300/80">Order summary</p>
+                <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 transition hover:text-white">&#x2715;</button>
+              </div>
+              <h3 className="mt-3 text-2xl font-black tracking-[-0.04em] text-white">Unlock your growth plan</h3>
+
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-5 py-4">
+                  <div>
+                    <p className="font-bold text-white">{plan.name} Plan</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">{isYearly ? "Billed yearly" : "Billed monthly"}</p>
+                  </div>
+                  <p className="text-lg font-black text-white">${baseDisplay}<span className="text-sm font-semibold text-slate-500">/mo</span></p>
+                </div>
+
+                {(showAddOn || addOnIncluded) && (
+                  <div className={`flex items-center justify-between rounded-2xl border px-5 py-4 ${addOnIncluded ? "border-emerald-400/20 bg-emerald-400/[0.08]" : "border-amber-300/20 bg-amber-300/[0.08]"}`}>
+                    <div>
+                      <p className="font-bold text-white">7-Day Recovery Plan</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">{addOnIncluded ? "Included with Enterprise" : "Add-on"}</p>
+                    </div>
+                    <div>
+                      {addOnIncluded
+                        ? <span className="text-sm font-black text-emerald-300">FREE</span>
+                        : <p className="text-lg font-black text-white">${addOnDisplay}<span className="text-sm font-semibold text-slate-500">/mo</span></p>}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between rounded-2xl border border-white/[0.15] bg-white/[0.06] px-5 py-4">
+                  <p className="font-bold text-white">Total</p>
+                  <div className="text-right">
+                    <p className="text-2xl font-black tracking-[-0.04em] text-white">${total}<span className="text-sm font-semibold text-slate-500">/mo</span></p>
+                    {isYearly && <p className="mt-0.5 text-[10px] text-emerald-300">Billed ${total * 12}/year</p>}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={onConfirm}
+                className="mt-6 w-full rounded-[20px] bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 px-5 py-4 text-sm font-black text-slate-950 shadow-[0_20px_45px_rgba(245,158,11,0.28)] transition hover:shadow-[0_24px_60px_rgba(245,158,11,0.38)]"
+              >
+                Start recovering traffic &#8594;
+              </button>
+              <p className="mt-3 text-center text-[11px] text-slate-500">Early pricing &#183; Prices will increase after launch.</p>
+              <button onClick={onClose} className="mt-2 w-full text-center text-xs text-slate-500 transition hover:text-slate-300">Cancel</button>
+            </div>
+          </div>
+        );
+}
+
 export default function LandingPage({ onAnalyze, onSeeDemo }) {
-  const [isAnalysisOpen, setAnalysisOpen] = useState(false);
-  const [analysisMode, setAnalysisMode] = useState("quick");
-  const [analysisDefaultBrand, setAnalysisDefaultBrand] = useState("");
-  const [heroBrand, setHeroBrand] = useState("");
+  const [brandName, setBrandName] = useState("");
+  const [billing, setBilling] = useState("monthly");
+  const [addOn, setAddOn] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState(null);
   const heroInputRef = useRef(null);
+  const finalInputRef = useRef(null);
 
-  const openAnalysis = (mode = "quick", brand = "") => {
-    setAnalysisMode(mode);
-    setAnalysisDefaultBrand(brand);
-    setAnalysisOpen(true);
+  const startAnalysis = (mode = "quick") => {
+    if (!brandName.trim()) {
+      heroInputRef.current?.focus();
+      return;
+    }
+
+    onAnalyze({ brandName: brandName.trim(), mode });
   };
 
-  const submitAnalysis = ({ brandName, industry, country, mode, autoRun }) => {
-    if (!brandName?.trim()) return;
-    setAnalysisOpen(false);
-    onAnalyze({ brandName: brandName.trim(), industry: industry || "auto", country: country || "Global", mode, autoRun });
-  };
+  const unlockPro = () => {
+    if (!brandName.trim()) {
+      heroInputRef.current?.focus();
+      return;
+    }
 
-  const handleHeroSubmit = () => {
-    if (!heroBrand.trim()) { heroInputRef.current?.focus(); return; }
-    openAnalysis("quick", heroBrand.trim());
+    onAnalyze({ brandName: brandName.trim(), mode: "full" });
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0E1A] text-slate-100 antialiased">
-      {/* ─── Background gradients ─── */}
+    <div className="min-h-screen overflow-x-hidden bg-[#07111f] text-white antialiased">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/4 h-[700px] w-[700px] rounded-full bg-blue-600/[0.07] blur-[140px]" />
-        <div className="absolute top-1/3 right-0 h-[500px] w-[500px] rounded-full bg-cyan-500/[0.05] blur-[120px]" />
-        <div className="absolute bottom-0 left-0 h-[400px] w-[400px] rounded-full bg-emerald-500/[0.04] blur-[100px]" />
-        <div className="absolute top-2/3 right-1/4 h-[300px] w-[300px] rounded-full bg-violet-500/[0.04] blur-[80px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_28%),radial-gradient(circle_at_80%_10%,_rgba(16,185,129,0.12),_transparent_24%),radial-gradient(circle_at_50%_55%,_rgba(59,130,246,0.10),_transparent_32%)]" />
+        <div className="absolute -top-28 left-10 h-80 w-80 rounded-full bg-cyan-400/12 blur-3xl" />
+        <div className="absolute top-32 right-0 h-[30rem] w-[30rem] rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-[24rem] w-[24rem] rounded-full bg-blue-500/12 blur-3xl" />
       </div>
 
-      {/* ═══════════════ STICKY HEADER ═══════════════ */}
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#0A0E1A]/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center gap-2.5 group">
-            <LumioMark size={32} />
-            <span className="text-base font-bold tracking-tight text-white">Lumio</span>
-          </button>
-
-          <nav className="hidden items-center gap-8 md:flex">
-            {[
-              { href: "#features", label: "Features" },
-              { href: "#how-it-works", label: "How it works" },
-              { href: "#demo", label: "Demo" },
-              { href: "#pricing", label: "Pricing" },
-              { href: "#faq", label: "FAQ" },
-            ].map((link) => (
-              <a key={link.href} href={link.href} className="text-sm text-slate-400 transition hover:text-white">{link.label}</a>
-            ))}
-          </nav>
-
+      <header className="sticky top-0 z-50 border-b border-white/8 bg-[#07111f]/78 backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-10">
           <div className="flex items-center gap-3">
-            <button onClick={() => openAnalysis("quick")} className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-2 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:shadow-lg hover:shadow-blue-500/30">
-              Analyze Free
+            <LumioMark size={34} />
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300/75">LUMIO AI</p>
+              <p className="text-sm font-semibold text-slate-400">AI Visibility and Growth</p>
+            </div>
+          </div>
+          <div className="hidden items-center gap-8 lg:flex">
+            <a href="#problem" className="text-sm text-slate-400 transition hover:text-white">Problem</a>
+            <a href="#demo" className="text-sm text-slate-400 transition hover:text-white">Live Demo</a>
+            <a href="#recovery" className="text-sm text-slate-400 transition hover:text-white">Recovery Plan</a>
+            <a href="#pricing" className="text-sm text-slate-400 transition hover:text-white">Pricing</a>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onSeeDemo} className="hidden rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.06] lg:inline-flex">
+              Unlock growth insights
+            </button>
+            <button onClick={unlockPro} className="rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 px-5 py-2.5 text-sm font-black text-slate-950 shadow-[0_16px_45px_rgba(34,211,238,0.28)] transition hover:scale-[1.01]">
+              Recover your visibility
             </button>
           </div>
         </div>
       </header>
 
       <main className="relative">
-
-        {/* ═══════════════════════ 1 · HERO (SPLIT) ═══════════════════════ */}
-        <section className="relative overflow-hidden px-6 pb-20 pt-16 md:pb-28 md:pt-24">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16">
-
-            {/* ── LEFT: Copy + Input ── */}
+        <section className="px-6 pb-20 pt-14 lg:px-10 lg:pb-28 lg:pt-20">
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
             <div>
-              {/* Trust pill */}
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-1.5">
-                <div className="flex -space-x-1.5">
-                  {[1,2,3,4].map((i) => (
-                    <div key={i} className="h-5 w-5 rounded-full border-2 border-[#0A0E1A] bg-gradient-to-br from-blue-400 to-cyan-400" />
-                  ))}
-                </div>
-                <span className="text-xs text-slate-400">Trusted by modern growth teams</span>
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/8 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-cyan-200">
+                Premium AI growth platform
               </div>
-
-              <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-white md:text-5xl lg:text-6xl">
-                <span className="text-red-400">🚨</span> Most brands are{" "}
-                <span className="bg-gradient-to-r from-red-400 via-amber-400 to-red-400 bg-clip-text text-transparent">
-                  losing customers
-                </span>{" "}
-                in AI answers
+              <h1 className="mt-8 max-w-4xl text-5xl font-black tracking-[-0.07em] text-white sm:text-6xl lg:text-7xl">
+                You are losing traffic to AI every day.
               </h1>
-
-              <p className="mt-6 max-w-lg text-lg leading-relaxed text-slate-400">
-                You might be losing <span className="font-bold text-red-400">thousands of dollars</span> in traffic every month — and you don't even know it.
+              <p className="mt-6 max-w-2xl text-xl leading-8 text-slate-300">
+                Your competitors are being recommended by AI tools — and you are not.
               </p>
-
-              {/* Hero input */}
-              <div className="mt-8 max-w-lg">
-                <div className="flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-1.5 shadow-xl shadow-blue-500/[0.06] backdrop-blur-sm transition-all focus-within:border-blue-500/30 focus-within:shadow-blue-500/[0.12]">
-                  <input
-                    ref={heroInputRef}
-                    value={heroBrand}
-                    onChange={(e) => setHeroBrand(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleHeroSubmit(); }}
-                    placeholder="Enter your domain (e.g. stripe.com)"
-                    className="flex-1 bg-transparent px-4 py-3 text-base text-white placeholder:text-slate-600 focus:outline-none"
-                  />
-                  <button
-                    onClick={handleHeroSubmit}
-                    className="shrink-0 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 px-6 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/25 transition-all hover:shadow-lg hover:shadow-blue-500/40 active:scale-[0.98]"
-                  >
-                    Analyze My Brand
-                  </button>
-                </div>
-
-                {/* Under-input bullets */}
-                <div className="mt-4 space-y-1.5">
-                  {[
-                    { emoji: "📉", text: "73% of users never click links anymore" },
-                    { emoji: "🎯", text: "AI gives ONE answer — not 10 blue links" },
-                    { emoji: "⚔️", text: "If it's not you → it's your competitor" },
-                  ].map((b) => (
-                    <div key={b.text} className="flex items-center gap-2">
-                      <span className="text-xs">{b.emoji}</span>
-                      <span className="text-xs text-slate-500">{b.text}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Social proof conversion */}
-                <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-500/10 bg-amber-500/[0.04] px-3 py-2">
-                  <span className="text-sm">🔥</span>
-                  <span className="text-xs font-medium text-amber-300/80">3 companies analyzed in the last 10 minutes</span>
-                </div>
+              <div className="mt-10">
+                <InputCta
+                  value={brandName}
+                  onChange={setBrandName}
+                  onSubmit={() => startAnalysis("quick")}
+                  inputRef={heroInputRef}
+                  buttonLabel="Analyze My Visibility"
+                  helperText="No signup required / Instant results"
+                />
               </div>
-
-              {/* Demo link */}
-              <button onClick={onSeeDemo} className="mt-5 text-sm font-medium text-slate-500 underline decoration-slate-700 underline-offset-4 transition hover:text-slate-300 hover:decoration-slate-500">
-                or see a live demo with Stripe →
-              </button>
-            </div>
-
-            {/* ── RIGHT: Mini dashboard preview ── */}
-            <div className="hidden lg:flex lg:justify-end">
-              <HeroDashboardPreview />
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════════════ 2 · TRUST + STATS BAR ═══════════════════════ */}
-        <section className="border-t border-white/[0.04] px-6 py-14">
-          <div className="mx-auto max-w-5xl">
-            {/* AI platforms */}
-            <div className="mb-10 text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-600">We analyze real responses from</p>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-10">
-                {["ChatGPT", "Google AI", "Perplexity", "Claude"].map((name) => (
-                  <span key={name} className="text-base font-bold text-slate-500/80 transition hover:text-slate-300">{name}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Stats bar */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {stats.map((s) => (
-                <div key={s.label} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 text-center backdrop-blur-sm">
-                  <p className={`text-3xl font-black ${s.accent}`}>{s.value}</p>
-                  <p className="mt-1.5 text-xs text-slate-500">{s.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════════════ 3 · AI VISIBILITY EXPLANATION ═══════════════════════ */}
-        <section className="border-t border-white/[0.04] bg-gradient-to-b from-transparent via-blue-950/[0.08] to-transparent px-6 py-20 md:py-28">
-          <div className="mx-auto max-w-5xl">
-            <div className="text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-blue-400">The invisible problem</p>
-              <h2 className="mt-4 text-3xl font-bold text-white md:text-4xl">AI gives ONE answer. If you're not in it — you don't exist.</h2>
-              <p className="mx-auto mt-5 max-w-2xl text-base text-slate-400">
-                When users ask "What's the best payment platform?" — AI doesn't show 10 blue links.
-                It recommends <span className="font-semibold text-white">one winner</span>. If that's not you, the customer is already gone.
-              </p>
-            </div>
-
-            <div className="mt-14 grid gap-5 md:grid-cols-3">
-              {[
-                {
-                  icon: (
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                    </svg>
-                  ),
-                  title: "Your traffic is leaking",
-                  text: "70% of product discovery is moving to AI. Users get an answer — and never reach your website.",
-                  color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/10",
-                },
-                {
-                  icon: (
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                    </svg>
-                  ),
-                  title: "Competitors win by default",
-                  text: "AI recommends brands with structured content. If you don't optimize, competitors absorb your demand.",
-                  color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/10",
-                },
-                {
-                  icon: (
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
-                    </svg>
-                  ),
-                  title: "Early movers compound",
-                  text: "AI learns from patterns. The earlier you appear, the harder it is for competitors to displace you.",
-                  color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/10",
-                },
-              ].map((card) => (
-                <div key={card.title} className={`rounded-2xl border ${card.border} bg-white/[0.02] p-6 backdrop-blur-sm`}>
-                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.bg} ${card.color}`}>{card.icon}</div>
-                  <h3 className="mt-4 text-base font-semibold text-white">{card.title}</h3>
-                  <p className="mt-2 text-sm text-slate-400 leading-relaxed">{card.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════════════ 4 · PROBLEM SECTION ═══════════════════════ */}
-        <section className="border-t border-white/[0.04] px-6 py-20 md:py-28">
-          <div className="mx-auto max-w-5xl">
-            <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-              {/* Left: message */}
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-red-400">Revenue impact</p>
-                <h2 className="mt-4 text-3xl font-bold text-white md:text-4xl">You are losing customers to AI</h2>
-                <p className="mt-4 max-w-md text-base text-slate-400">
-                  Every day your brand is invisible in AI answers, competitors capture high-intent buyers who never even consider you.
-                </p>
-                <button onClick={() => openAnalysis("quick")} className="mt-8 rounded-xl bg-gradient-to-r from-red-500 via-red-600 to-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:shadow-xl hover:shadow-red-500/30">
-                  Stop losing customers
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <button onClick={unlockPro} className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08]">
+                  Stop losing traffic
+                </button>
+                <button onClick={onSeeDemo} className="rounded-full px-5 py-3 text-sm font-bold text-slate-300 transition hover:text-white">
+                  Unlock growth insights
                 </button>
               </div>
-
-              {/* Right: visual stats */}
-              <div className="space-y-4">
-                {problemStats.map((s) => (
-                  <div key={s.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 backdrop-blur-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-slate-500">{s.label}</span>
-                      <span className={`text-lg font-black ${s.color}`}>{s.value}</span>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-white/[0.06]">
-                      <div className={`h-1.5 rounded-full ${s.bar} transition-all duration-1000`} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════════════ 5 · HOW IT WORKS ═══════════════════════ */}
-        <section id="how-it-works" className="border-t border-white/[0.04] bg-gradient-to-b from-transparent via-cyan-950/[0.06] to-transparent px-6 py-20 md:py-28">
-          <div className="mx-auto max-w-5xl">
-            <div className="text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-emerald-400">How it works</p>
-              <h2 className="mt-4 text-3xl font-bold text-white md:text-4xl">From zero to insights in 60 seconds</h2>
             </div>
 
-            <div className="mt-14 grid gap-8 md:grid-cols-3">
-              {howItWorks.map((h, idx) => (
-                <div key={h.step} className="group relative rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all hover:border-white/[0.12] hover:bg-white/[0.04]">
-                  {/* Connector line (desktop) */}
-                  {idx < 2 && <div className="absolute -right-4 top-1/2 hidden h-px w-8 bg-gradient-to-r from-white/10 to-transparent md:block" />}
-
-                  <div className="mb-5 flex items-center justify-between">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-sm font-black text-white shadow-md shadow-blue-500/20">{h.step}</span>
-                    <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-0.5 text-[10px] font-bold text-slate-500">{h.time}</span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-white">{h.title}</h3>
-                  <p className="mt-2 text-sm text-slate-400 leading-relaxed">{h.desc}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-14 text-center">
-              <button onClick={() => openAnalysis("quick")} className="rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl hover:shadow-blue-500/30">
-                Try it free — no signup
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════════════ 6 · MINI DEMO ═══════════════════════ */}
-        <section id="demo" className="border-t border-white/[0.04] px-6 py-20 md:py-28">
-          <div className="mx-auto max-w-5xl">
-            <div className="text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-violet-400">Live preview</p>
-              <h2 className="mt-4 text-3xl font-bold text-white md:text-4xl">See what you're missing</h2>
-              <p className="mx-auto mt-4 max-w-xl text-base text-slate-400">
-                Real data from AI responses. This is what your competitors see — and you don't.
-              </p>
-            </div>
-
-            <div className="mt-14 grid gap-6 lg:grid-cols-2">
-              {/* Competitor bar chart */}
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
-                <div className="mb-5 flex items-center justify-between">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-[36px] bg-gradient-to-br from-cyan-400/20 via-transparent to-emerald-400/15 blur-2xl" />
+              <div className="relative rounded-[36px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_30px_100px_rgba(2,8,23,0.55)] backdrop-blur-2xl">
+                <div className="flex items-center justify-between border-b border-white/8 pb-5">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Competitor Visibility</p>
-                    <p className="mt-1 text-sm text-slate-400">Query: "best payment platform"</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">AI visibility overview</p>
+                    <p className="mt-2 text-2xl font-black tracking-[-0.04em] text-white">LUMIO AI analysis preview</p>
                   </div>
-                  <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-0.5 text-[10px] font-bold text-red-400">You: 8%</span>
+                  <span className="rounded-full border border-red-400/20 bg-red-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-red-200">Traffic leaking</span>
                 </div>
-                <div className="h-[200px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={demoCompetitorData} barSize={32}>
-                      <XAxis dataKey="name" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: "#475569", fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} width={30} />
-                      <Tooltip content={<ChartTooltip />} cursor={false} />
-                      <Bar dataKey="visibility" radius={[6, 6, 0, 0]}>
-                        {demoCompetitorData.map((entry, i) => (
-                          <Cell key={i} fill={entry.fill} fillOpacity={entry.name === "You?" ? 1 : 0.75} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                {/* Chart annotation */}
-                <div className="mt-3 flex items-center justify-between rounded-lg border border-red-500/15 bg-red-500/[0.06] px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                    <span className="text-[10px] font-bold text-red-400">You (critically low visibility)</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-500">Stripe (dominates 72%)</span>
-                </div>
-              </div>
 
-              {/* Trend area chart */}
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
-                <div className="mb-5 flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Visibility Trend</p>
-                    <p className="mt-1 text-sm text-slate-400">Competitor vs You · 6 months</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1 text-[10px] text-blue-400"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />Competitor</span>
-                    <span className="flex items-center gap-1 text-[10px] text-red-400"><span className="h-1.5 w-1.5 rounded-full bg-red-500" />You</span>
-                  </div>
+                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                  <DemoMetric label="Visibility score" value="18/100" tone="text-red-300" />
+                  <DemoMetric label="Lost traffic" value="2,480" tone="text-amber-200" />
+                  <DemoMetric label="AI leaders" value="4" tone="text-cyan-200" />
                 </div>
-                <div className="h-[200px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={demoTrendData}>
-                      <defs>
-                        <linearGradient id="gradComp" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="gradYou" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#EF4444" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: "#475569", fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} width={30} />
-                      <Tooltip content={<ChartTooltip />} cursor={false} />
-                      <Area type="monotone" dataKey="competitor" name="Competitor" stroke="#3B82F6" strokeWidth={2} fill="url(#gradComp)" />
-                      <Area type="monotone" dataKey="you" name="You" stroke="#EF4444" strokeWidth={2} fill="url(#gradYou)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-                {/* Chart annotation */}
-                <div className="mt-3 flex items-center justify-between rounded-lg border border-amber-500/15 bg-amber-500/[0.06] px-3 py-2">
-                  <span className="text-[10px] font-bold text-amber-400">↑ Competitor visibility growing</span>
-                  <span className="text-[10px] font-bold text-red-400">↓ You: declining every month</span>
-                </div>
-              </div>
-            </div>
 
-            {/* Revenue impact row */}
-            <div className="mt-6 rounded-2xl border border-red-500/20 bg-gradient-to-r from-red-950/40 via-[#111827] to-red-950/40 p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">💰</span>
-                <p className="text-sm font-bold text-white">What this costs you</p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {[
-                  { label: "Lost traffic", value: "~8,200/mo", sub: "users going to competitors", color: "text-red-400" },
-                  { label: "Revenue at risk", value: "~$3,200/mo", sub: "estimated monthly loss", color: "text-red-400" },
-                  { label: "Missed opportunities", value: "12 queries", sub: "where competitors win", color: "text-amber-400" },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center backdrop-blur-sm">
-                    <p className={`text-xl font-black ${item.color}`}>{item.value}</p>
-                    <p className="mt-1 text-xs text-slate-500">{item.sub}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Insight row below charts */}
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              {[
-                { label: "Visibility gap", value: "64%", sub: "between you and #1 competitor", color: "text-red-400" },
-                { label: "Missed queries", value: "12", sub: "high-intent queries you're absent from", color: "text-amber-400" },
-                { label: "Revenue at risk", value: "$18K/mo", sub: "estimated lost from AI invisibility", color: "text-red-400" },
-              ].map((item) => (
-                <div key={item.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center backdrop-blur-sm">
-                  <p className={`text-xl font-black ${item.color}`}>{item.value}</p>
-                  <p className="mt-1 text-xs text-slate-500">{item.sub}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-10 text-center">
-              <button onClick={() => openAnalysis("full")} className="rounded-xl bg-gradient-to-r from-red-500 via-red-600 to-red-500 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:shadow-xl">
-                Stop losing customers →
-              </button>
-              <p className="mt-3 text-xs text-slate-600">This is sample data. Run your brand to see your real revenue loss.</p>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════════════ FEATURES GRID ═══════════════════════ */}
-        <section id="features" className="border-t border-white/[0.04] bg-gradient-to-b from-transparent via-blue-950/[0.05] to-transparent px-6 py-20 md:py-28">
-          <div className="mx-auto max-w-5xl">
-            <div className="text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-400">Platform</p>
-              <h2 className="mt-4 text-3xl font-bold text-white md:text-4xl">Everything you need to win in AI</h2>
-            </div>
-
-            <div className="mt-14 grid gap-5 md:grid-cols-2">
-              {features.map((f) => (
-                <div key={f.title} className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-300 hover:border-white/[0.12] hover:bg-white/[0.04]">
-                  <div className="flex items-start gap-4">
-                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${f.bg} ${f.color} transition-transform duration-300 group-hover:scale-110`}>{f.icon}</div>
+                <div className="mt-6 rounded-[28px] border border-white/8 bg-slate-950/45 p-5">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-base font-semibold text-white">{f.title}</h3>
-                      <p className="mt-2 text-sm text-slate-400 leading-relaxed">{f.desc}</p>
+                      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">What AI recommends</p>
+                      <p className="mt-2 text-lg font-bold text-white">Competitors own the highest-intent prompts</p>
                     </div>
+                    <button onClick={onSeeDemo} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-300 transition hover:bg-white/[0.08]">
+                      Live demo
+                    </button>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {[
+                      { name: "Stripe", share: 72, tone: "bg-cyan-400" },
+                      { name: "Adyen", share: 48, tone: "bg-blue-400" },
+                      { name: "PayPal", share: 39, tone: "bg-emerald-400" },
+                      { name: "Your brand", share: 18, tone: "bg-red-400" },
+                    ].map((item) => (
+                      <div key={item.name}>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-semibold text-slate-300">{item.name}</span>
+                          <span className="text-slate-500">{item.share}% of AI mentions</span>
+                        </div>
+                        <div className="mt-2 h-2 rounded-full bg-white/6">
+                          <div className={`h-2 rounded-full ${item.tone}`} style={{ width: `${item.share}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-[28px] border border-amber-300/15 bg-gradient-to-r from-amber-300/10 to-transparent p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-200">7-Day Recovery Plan</p>
+                      <p className="mt-2 text-lg font-bold text-white">Most valuable feature inside Pro</p>
+                      <p className="mt-2 text-sm leading-7 text-slate-400">See the exact fixes, content moves, and prompt-level actions needed to recover visibility within seven days.</p>
+                    </div>
+                    <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-200">Upgrade driver</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-y border-white/8 bg-slate-950/25 px-6 py-8 lg:px-10">
+          <div className="mx-auto flex max-w-7xl flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-sm font-semibold text-slate-300">Used by growth teams, startups, and marketers</p>
+            <div className="flex flex-wrap gap-3">
+              {TRUST_MARKS.map((mark) => <TrustMark key={mark} name={mark} />)}
+            </div>
+          </div>
+        </section>
+
+        <section id="problem" className="px-6 py-24 lg:px-10">
+          <div className="mx-auto max-w-7xl">
+            <SectionIntro
+              eyebrow="Why this matters"
+              title="AI is replacing search — and you are invisible"
+              body="The traffic loss does not show up as a normal SEO drop. It happens in the recommendation layer, where AI picks winners before users ever click."
+            />
+            <div className="mt-14 grid gap-5 lg:grid-cols-3">
+              {PROBLEM_CARDS.map((card) => (
+                <div key={card.title} className={`rounded-[30px] border ${card.border} bg-gradient-to-br ${card.accent} p-[1px] shadow-[0_24px_80px_rgba(15,23,42,0.35)]`}>
+                  <div className="h-full rounded-[29px] bg-[#0a1526] p-7">
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">{card.icon}</span>
+                    <h3 className="mt-6 text-2xl font-black tracking-[-0.04em] text-white">{card.title}</h3>
+                    <p className="mt-4 text-sm leading-7 text-slate-400">{card.body}</p>
                   </div>
                 </div>
               ))}
@@ -720,120 +549,217 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
           </div>
         </section>
 
-        {/* ═══════════════════════ PRICING ═══════════════════════ */}
-        <section id="pricing" className="border-t border-white/[0.04] px-6 py-20 md:py-28">
-          <div className="mx-auto max-w-4xl">
-            <div className="text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-blue-400">Pricing</p>
-              <h2 className="mt-4 text-3xl font-bold text-white md:text-4xl">Start free. Scale when ready.</h2>
-              <p className="mt-4 text-base text-slate-400">No credit card required for your first analysis.</p>
-            </div>
-
-            <div className="mt-14 grid gap-6 md:grid-cols-3">
-              {/* Free */}
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Free</p>
-                <p className="mt-3 text-4xl font-black text-white">$0</p>
-                <p className="mt-1 text-xs text-slate-600">forever</p>
-                <ul className="mt-6 space-y-3">
-                  {["3 analyses per month", "Basic AI analysis", "Visibility score", "Top 3 competitors", "Basic insights"].map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-slate-400"><span className="text-emerald-400">✓</span>{f}</li>
-                  ))}
-                </ul>
-                <button onClick={() => openAnalysis("quick")} className="mt-8 w-full rounded-xl border border-white/[0.1] bg-white/[0.05] px-4 py-3 text-sm font-bold text-white transition hover:bg-white/[0.1]">
-                  Start Free
-                </button>
+        <section id="demo" className="border-y border-white/8 bg-slate-950/20 px-6 py-24 lg:px-10">
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
+            <SectionIntro
+              eyebrow="Live demo"
+              title="See how LUMIO AI exposes the gap"
+              body="The product shows the score, the lost demand, and the competitors capturing recommendation share. Then it gates the deeper analysis behind Pro."
+              align="left"
+            />
+            <div className="rounded-[34px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_30px_100px_rgba(2,8,23,0.58)] backdrop-blur-2xl">
+              <div className="grid gap-4 md:grid-cols-3">
+                <DemoMetric label="Visibility score" value="22/100" tone="text-red-300" />
+                <DemoMetric label="Lost traffic / month" value="3,120" tone="text-amber-200" />
+                <DemoMetric label="Competitors tracked" value="6" tone="text-cyan-200" />
               </div>
-
-              {/* Pro - highlighted */}
-              <div className="relative rounded-2xl border border-blue-500/30 bg-gradient-to-b from-blue-500/[0.08] to-transparent p-6 shadow-xl shadow-blue-500/[0.06]">
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-3 py-1 text-[10px] font-bold uppercase text-white shadow-lg shadow-blue-500/30">Most popular</span>
+              <div className="mt-6 grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+                <div className="rounded-[26px] border border-white/8 bg-slate-950/45 p-5">
+                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">Competitors listed</p>
+                  <div className="mt-4 space-y-3">
+                    {[
+                      { name: "Stripe", score: "72%", note: "Dominates payment platform prompts" },
+                      { name: "PayPal", score: "39%", note: "Wins trust and brand-association prompts" },
+                      { name: "Adyen", score: "48%", note: "Strong on enterprise recommendation prompts" },
+                    ].map((competitor) => (
+                      <div key={competitor.name} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-white">{competitor.name}</p>
+                          <span className="text-sm font-bold text-cyan-200">{competitor.score}</span>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-400">{competitor.note}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Pro</p>
-                <p className="mt-3 text-4xl font-black text-white">$49<span className="text-base font-semibold text-slate-500">/mo</span></p>
-                <p className="mt-1 text-xs text-slate-600">billed monthly</p>
-                <ul className="mt-6 space-y-3">
-                  {["50 analyses per month", "Full AI analysis", "Strategy recommendations", "Content generation", "Tracking & impact analysis", "Competitor deep-dive"].map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-slate-300"><span className="text-blue-400">✓</span>{f}</li>
-                  ))}
-                </ul>
-                <button onClick={() => openAnalysis("full")} className="mt-8 w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:shadow-lg">
-                  Recover Your Traffic →
-                </button>
-              </div>
-
-              {/* Enterprise */}
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Enterprise</p>
-                <p className="mt-3 text-2xl font-black text-white">Custom Pricing</p>
-                <p className="mt-1 text-xs text-slate-600">tailored to your org</p>
-                <ul className="mt-6 space-y-3">
-                  {["Unlimited analyses", "Multi-brand portfolio", "Team collaboration", "Weekly AI reports", "Priority insights", "Dedicated support"].map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-slate-400"><span className="text-emerald-400">✓</span>{f}</li>
-                  ))}
-                </ul>
-                <button className="mt-8 w-full rounded-xl border border-white/[0.1] bg-white/[0.05] px-4 py-3 text-sm font-bold text-white transition hover:bg-white/[0.1]">
-                  Contact Sales
-                </button>
+                <div className="relative overflow-hidden rounded-[26px] border border-white/8 bg-slate-950/45 p-5">
+                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">Premium analysis preview</p>
+                  <div className="mt-4 space-y-3">
+                    {[
+                      "Missing commercial comparison pages",
+                      "Low citation density across key answers",
+                      "Weak brand positioning in AI summaries",
+                      "Prompt-level visibility trend by competitor",
+                    ].map((line, index) => (
+                      <div key={line} className={`rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4 ${index > 0 ? "blur-[3px]" : ""}`}>
+                        <p className="text-sm font-semibold text-white">{line}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="absolute inset-x-5 bottom-5 rounded-[24px] border border-amber-300/20 bg-[#08111f]/88 p-5 text-center backdrop-blur-xl">
+                    <p className="text-lg font-black text-white">Unlock full analysis</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">Get the missing prompt data, competitor patterns, and full upgrade path.</p>
+                    <button onClick={unlockPro} className="mt-4 rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:scale-[1.01]">
+                      Unlock full analysis
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ═══════════════════════ FAQ ═══════════════════════ */}
-        <section id="faq" className="border-t border-white/[0.04] bg-gradient-to-b from-transparent via-blue-950/[0.04] to-transparent px-6 py-20 md:py-28">
-          <div className="mx-auto max-w-2xl">
-            <div className="text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">FAQ</p>
-              <h2 className="mt-4 text-3xl font-bold text-white md:text-4xl">Common questions</h2>
-            </div>
-            <div className="mt-12">
-              {faqItems.map((item) => <FaqItem key={item.q} {...item} />)}
+        <section className="px-6 py-24 lg:px-10">
+          <div className="mx-auto max-w-7xl">
+            <SectionIntro
+              eyebrow="Core value"
+              title="From invisible to recommended"
+              body="LUMIO AI is built to turn AI visibility from a vague brand problem into a measurable, repeatable growth channel."
+            />
+            <div className="mt-14 grid gap-5 lg:grid-cols-3">
+              {VALUE_PILLARS.map((pillar) => <ValueCard key={pillar.title} {...pillar} />)}
             </div>
           </div>
         </section>
 
-        {/* ═══════════════════════ 7 · FINAL CTA ═══════════════════════ */}
-        <section className="border-t border-white/[0.04] px-6 py-24 md:py-32">
-          <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl font-bold text-white md:text-5xl">
-              Recover your AI visibility
-            </h2>
-            <p className="mx-auto mt-2 max-w-lg text-3xl font-bold md:text-5xl">
-              <span className="bg-gradient-to-r from-red-400 via-amber-400 to-red-400 bg-clip-text text-transparent">before competitors lock you out.</span>
-            </p>
-            <p className="mt-6 text-lg text-slate-400">See your score in 60 seconds. No signup required.</p>
-            <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-              <button onClick={() => openAnalysis("quick")} className="rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.98]">
-                Stop Losing Customers
-              </button>
-              <button onClick={onSeeDemo} className="rounded-xl border border-white/[0.1] bg-white/[0.03] px-8 py-4 text-base font-semibold text-slate-300 transition hover:bg-white/[0.06]">
-                See live demo
+        <section id="recovery" className="border-y border-white/8 bg-slate-950/20 px-6 py-24 lg:px-10">
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <div>
+              <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-amber-200">
+                Most valuable feature
+              </div>
+              <h2 className="mt-6 text-4xl font-black tracking-[-0.05em] text-white md:text-5xl">Your 7-Day Recovery Plan</h2>
+              <p className="mt-5 max-w-xl text-lg leading-8 text-slate-400">
+                We don’t just show the problem. We tell you exactly what to do.
+              </p>
+              <p className="mt-4 max-w-xl text-base leading-7 text-slate-400">
+                Pro turns raw visibility data into a day-by-day execution sequence so your team knows what to ship first, what to measure, and how to recover AI demand fast.
+              </p>
+              <button onClick={unlockPro} className="mt-8 rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 px-6 py-3.5 text-sm font-black text-slate-950 shadow-[0_20px_50px_rgba(245,158,11,0.28)] transition hover:scale-[1.01]">
+                Unlock your recovery plan
               </button>
             </div>
-            <p className="mt-4 text-xs text-slate-600">No signup · No credit card · Instant results</p>
+
+            <div className="rounded-[34px] border border-amber-300/15 bg-white/[0.04] p-6 shadow-[0_30px_100px_rgba(2,8,23,0.58)] backdrop-blur-2xl">
+              <RecoveryDay item={RECOVERY_DAYS[0]} />
+              <div className="relative mt-4">
+                <div className="space-y-4 blur-[4px] select-none pointer-events-none">
+                  {RECOVERY_DAYS.slice(1).map((item) => <RecoveryDay key={item.day} item={item} locked />)}
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center px-5">
+                  <div className="max-w-md rounded-[30px] border border-amber-300/20 bg-[#08111f]/88 p-6 text-center shadow-[0_20px_60px_rgba(15,23,42,0.55)] backdrop-blur-2xl">
+                    <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">Most valuable feature</span>
+                    <p className="mt-4 text-2xl font-black tracking-[-0.04em] text-white">Unlock your recovery plan</p>
+                    <p className="mt-3 text-sm leading-7 text-slate-400">Day 1 is visible. Days 2-7 are reserved for Pro, where the full growth sequence is unlocked.</p>
+                    <button onClick={unlockPro} className="mt-5 rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:scale-[1.01]">
+                      Unlock your recovery plan
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* ═══════════════════════ FOOTER ═══════════════════════ */}
-        <footer className="border-t border-white/[0.04] px-6 py-10">
-          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 md:flex-row">
-            <div className="flex items-center gap-2">
-              <LumioMark size={24} />
-              <span className="text-sm font-bold text-white">Lumio</span>
+        <section id="pricing" className="px-6 py-24 lg:px-10">
+          <div className="mx-auto max-w-7xl">
+            <SectionIntro
+              eyebrow="Pricing"
+              title="Upgrade when the visibility gap becomes too expensive"
+              body="Start with a free read on your AI visibility, then move to Pro when you need competitor intelligence and a real recovery plan."
+            />
+            <div className="mt-8 flex flex-col items-center gap-3">
+              <BillingToggle billing={billing} onChange={setBilling} />
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-300/80">
+                &#9889; Early pricing ends soon &#8212; prices will increase after launch
+              </p>
             </div>
-            <div className="flex items-center gap-6">
-              <a href="#features" className="text-xs text-slate-600 transition hover:text-slate-400">Features</a>
-              <a href="#pricing" className="text-xs text-slate-600 transition hover:text-slate-400">Pricing</a>
-              <a href="#faq" className="text-xs text-slate-600 transition hover:text-slate-400">FAQ</a>
+            <div className="mt-10 grid gap-5 lg:grid-cols-3">
+              {PRICING.map((plan) => (
+                <PricingCard
+                  key={plan.name}
+                  plan={plan}
+                  billing={billing}
+                  addOn={addOn}
+                  onAddOnChange={setAddOn}
+                  onCheckout={setCheckoutPlan}
+                  onStartFree={() => startAnalysis("quick")}
+                />
+              ))}
             </div>
-            <p className="text-xs text-slate-600">© 2026 Lumio. All rights reserved.</p>
+          </div>
+        </section>
+
+        {checkoutPlan && (
+          <CheckoutModal
+            plan={checkoutPlan}
+            billing={billing}
+            addOn={addOn}
+            onClose={() => setCheckoutPlan(null)}
+            onConfirm={() => { setCheckoutPlan(null); unlockPro(); }}
+          />
+        )}
+
+        <section className="border-y border-white/8 bg-gradient-to-r from-red-500/10 via-transparent to-amber-300/10 px-6 py-20 lg:px-10">
+          <div className="mx-auto flex max-w-7xl flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-red-200/85">Urgency</p>
+              <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-white md:text-5xl">Every day you are not visible, you lose customers.</h2>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">AI recommendation loops compound. The longer competitors own the answer, the harder they are to displace.</p>
+            </div>
+            <button onClick={unlockPro} className="rounded-full bg-gradient-to-r from-red-400 via-orange-400 to-amber-300 px-7 py-4 text-sm font-black text-slate-950 shadow-[0_20px_50px_rgba(248,113,113,0.28)] transition hover:scale-[1.01]">
+              Start recovering now
+            </button>
+          </div>
+        </section>
+
+        <section className="px-6 py-24 lg:px-10 lg:py-28">
+          <div className="mx-auto max-w-5xl rounded-[40px] border border-white/10 bg-white/[0.04] p-8 shadow-[0_30px_100px_rgba(2,8,23,0.58)] backdrop-blur-2xl md:p-12">
+            <SectionIntro
+              eyebrow="Final CTA"
+              title="See how much traffic you're losing"
+              body="Run one input, get the score, and decide whether the gap is big enough to keep ignoring."
+            />
+            <div className="mt-10 flex justify-center">
+              <InputCta
+                value={brandName}
+                onChange={setBrandName}
+                onSubmit={() => startAnalysis("quick")}
+                inputRef={finalInputRef}
+                buttonLabel="Analyze My Visibility"
+                helperText="No signup required / Instant results"
+                compact
+              />
+            </div>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <button onClick={unlockPro} className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-5 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-300/15">
+                Recover your visibility
+              </button>
+              <button onClick={onSeeDemo} className="rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-black text-slate-300 transition hover:bg-white/[0.06]">
+                Stop losing traffic
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <footer className="border-t border-white/8 px-6 py-8 lg:px-10">
+          <div className="mx-auto flex max-w-7xl flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <LumioMark size={26} />
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-300/80">LUMIO AI</p>
+                <p className="text-sm text-slate-500">AI Visibility and Growth platform</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-6 text-sm text-slate-500">
+              <a href="#problem" className="transition hover:text-white">Problem</a>
+              <a href="#demo" className="transition hover:text-white">Live Demo</a>
+              <a href="#recovery" className="transition hover:text-white">Recovery Plan</a>
+              <a href="#pricing" className="transition hover:text-white">Pricing</a>
+            </div>
           </div>
         </footer>
       </main>
-
-      <AnalysisModal isOpen={isAnalysisOpen} onClose={() => setAnalysisOpen(false)} onSubmit={submitAnalysis} defaultMode={analysisMode} defaultBrand={analysisDefaultBrand} />
     </div>
   );
 }

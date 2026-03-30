@@ -5,6 +5,7 @@ import { useWorkspace } from "../shared/hooks/useWorkspace";
 import { ActionModeToggle } from "../shared/components";
 import { computeTrafficLossPct, getShockMetrics } from "../shared/utils/insightEngine";
 import { LumioMark } from "../shared/components/LumioLogo";
+import { PLAN_DETAILS, PRO_UPGRADE_COPY } from "../shared/utils/pricing";
 
 const NAV = [
   { to: "/app",              icon: "📊", label: "Dashboard",           end: true },
@@ -163,13 +164,13 @@ export default function AppLayout() {
               <button onClick={() => setLimitModalOpen(false)} className="rounded-lg p-1 text-slate-500 hover:bg-white/[0.05] hover:text-white transition-colors">✕</button>
             </div>
             <h4 className="text-xl font-bold text-white">Your monthly analysis limit has been reached.</h4>
-            <p className="mt-2 text-sm text-slate-400">You've used {usageCount} of {usageLimit} analyses this month. Upgrade to Pro for 50 analyses/month and full access to all features.</p>
+            <p className="mt-2 text-sm text-slate-400">You've used {usageCount} of {usageLimit} analyses this month. {PRO_UPGRADE_COPY}</p>
             <p className="mt-3 text-xs text-red-400 font-medium">You are losing traffic every day you are not visible in AI search.</p>
             <button
               onClick={() => { setLimitModalOpen(false); setPremiumModalOpen(true); }}
               className="mt-5 w-full rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 hover:shadow-xl transition-all"
             >
-              Upgrade to Pro — $49/mo
+              Upgrade to Pro — {PLAN_DETAILS.pro.price}{PLAN_DETAILS.pro.cadence}
             </button>
             <button onClick={() => setLimitModalOpen(false)} className="mt-3 w-full text-xs text-slate-500 hover:text-slate-300 transition-colors">Not now</button>
           </div>

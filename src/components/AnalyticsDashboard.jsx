@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { ANALYZE_API_URL } from "../api";
+import { PRICING_PLANS } from "../shared/utils/pricing";
 import {
   BarChart,
   Bar,
@@ -1794,49 +1795,7 @@ export default function AnalyticsDashboard({
     }, 80);
   }, []);
 
-  const pricingPlans = useMemo(() => ([
-    {
-      name: "FREE",
-      price: "$0",
-      cadence: "",
-      features: [
-        "3 analyses per month",
-        "Basic AI analysis",
-        "Visibility score",
-        "Top 3 competitors",
-        "Basic insights",
-      ],
-      cta: "Start Free",
-    },
-    {
-      name: "PRO",
-      price: "$49",
-      cadence: "/ month",
-      features: [
-        "50 analyses per month",
-        "Full AI analysis",
-        "Strategy recommendations",
-        "Content generation",
-        "Tracking & impact analysis",
-        "Competitor deep-dive",
-      ],
-      cta: "Recover Your Traffic",
-    },
-    {
-      name: "ENTERPRISE",
-      price: "Custom",
-      cadence: "",
-      features: [
-        "Unlimited analyses",
-        "Multi-brand portfolio",
-        "Team collaboration",
-        "Weekly AI reports",
-        "Priority insights",
-        "Dedicated support",
-      ],
-      cta: "Contact Sales",
-    },
-  ]), []);
+  const proPlan = PRICING_PLANS.find((plan) => plan.id === "pro");
 
   return (
     <div className="min-h-screen bg-[#0A0E1A] text-slate-200 antialiased">
@@ -2980,32 +2939,48 @@ export default function AnalyticsDashboard({
             <GlassCard className={`p-5 transition-all duration-500 ${showPostScoreSections ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`} glow="bg-indigo-500">
               <SectionHeader icon="💰" title="Turn Visibility Into Revenue" subtitle="Choose your recovery plan" />
               <div className="mt-5 grid gap-4 md:grid-cols-3">
-                {pricingPlans.map((plan) => (
-                  <div key={plan.name} className={`relative rounded-xl border p-5 transition-all hover:scale-[1.02] ${plan.name === "PRO" ? "border-blue-500/40 bg-gradient-to-b from-blue-500/10 to-transparent" : "border-slate-700/40 bg-slate-900/40"}`}>
-                    {plan.name === "PRO" ? (
+                {PRICING_PLANS.map((plan) => (
+                  <div key={plan.id} className={`relative rounded-xl border p-5 transition-all hover:scale-[1.02] ${plan.id === "pro" ? "border-amber-400/40 bg-gradient-to-b from-amber-400/12 via-blue-500/10 to-transparent shadow-lg shadow-amber-500/10" : "border-slate-700/40 bg-slate-900/40"}`}>
+                    {plan.badge ? (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <span className="rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-3 py-1 text-[10px] font-bold uppercase text-white shadow-lg shadow-blue-500/30">Most popular</span>
+                        <span className="rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-1 text-[10px] font-black uppercase text-slate-950 shadow-lg shadow-amber-500/30">{plan.badge}</span>
                       </div>
                     ) : null}
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{plan.name}</p>
-                    <p className="mt-2 text-3xl font-black text-white">
-                      {plan.price}
-                      {plan.cadence ? <span className="ml-1 text-sm font-semibold text-slate-500">{plan.cadence}</span> : null}
-                    </p>
+                    <p className={`text-[10px] font-bold uppercase tracking-widest ${plan.id === "pro" ? "text-amber-200" : "text-slate-500"}`}>{plan.label}</p>
+                    <div className="mt-2">
+                      <div className="flex items-end gap-1">
+                        <p className="text-3xl font-black text-white">
+                          {plan.launchPrice ? `$${plan.launchPrice}` : plan.price}
+                        </p>
+                        {plan.cadence && <span className="pb-0.5 text-sm font-semibold text-slate-500">{plan.cadence}</span>}
+                      </div>
+                      {plan.originalPriceFormatted && (
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          <span className="line-through">{plan.originalPriceFormatted}{plan.cadence}</span>
+                          <span className="ml-1.5 rounded-full bg-emerald-400/15 px-1.5 py-0.5 text-[10px] font-black text-emerald-300">Launch</span>
+                        </p>
+                      )}
+                    </div>
+                    {plan.premiumFeature ? (
+                      <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-200">Premium feature</p>
+                        <p className="mt-1 text-sm font-bold text-white">{plan.premiumFeature}</p>
+                      </div>
+                    ) : null}
                     <ul className="mt-4 space-y-2">
                       {plan.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-2 text-xs text-slate-300">
-                          <span className="mt-0.5 text-emerald-400">✓</span>
+                          <span className={`mt-0.5 ${plan.id === "pro" ? "text-amber-300" : "text-emerald-400"}`}>✓</span>
                           {feature}
                         </li>
                       ))}
                     </ul>
                     <button
                       type="button"
-                      onClick={() => setPremiumModalOpen(true)}
-                      className={`mt-5 w-full rounded-lg px-3 py-2.5 text-xs font-bold transition-all ${plan.name === "PRO" ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:opacity-90" : "bg-white text-slate-950 hover:bg-slate-100"}`}
+                      onClick={() => (plan.id === "pro" || plan.id === "enterprise") ? setPremiumModalOpen(true) : setMode("quick")}
+                      className={`mt-5 w-full rounded-lg px-3 py-2.5 text-xs font-bold transition-all ${plan.id === "pro" ? "bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-slate-950 hover:opacity-90" : "bg-white text-slate-950 hover:bg-slate-100"}`}
                     >
-                      {plan.cta}
+                      {plan.id === "enterprise" ? "Contact Sales" : plan.id === "pro" ? "Unlock Full Plan" : "Current Preview"}
                     </button>
                   </div>
                 ))}
@@ -3080,23 +3055,31 @@ export default function AnalyticsDashboard({
               <div>
                 <h4 className="text-2xl font-bold text-white">You are losing traffic every day you are not visible in AI search.</h4>
                 <p className="mt-1 text-sm text-slate-400">Your competitors are already taking these positions. Unlock the full report to recover your visibility — before the gap widens.</p>
+              <div>
+                <h4 className="text-2xl font-bold text-white">Your recovery plan is ready.</h4>
+                <p className="mt-1 text-sm text-slate-400">Unlock the full report and 7-Day Recovery Plan to reclaim AI visibility before competitors widen the gap.</p>
               </div>
-              <button onClick={() => setPremiumModalOpen(false)} className="rounded-lg p-1 text-slate-500 hover:bg-white/[0.05] hover:text-white transition-colors">✕</button>
-            </div>
-
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
               <p className="text-sm font-semibold text-white">What you unlock:</p>
+              {proPlan?.premiumFeature ? (
+                <div className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-200">Most Valuable</p>
+                  <p className="mt-1 text-sm font-bold text-white">{proPlan.premiumFeature}</p>
+                </div>
+              ) : null}
               <ul className="mt-3 space-y-2.5 text-sm text-slate-400">
-                <li className="flex items-center gap-2"><span className="h-1 w-1 rounded-full bg-red-400" />See exactly which queries you're losing and why</li>
-                <li className="flex items-center gap-2"><span className="h-1 w-1 rounded-full bg-amber-400" />Competitor strategy breakdown — what they do that you don't</li>
-                <li className="flex items-center gap-2"><span className="h-1 w-1 rounded-full bg-cyan-400" />Full query-level analysis with gap percentages</li>
-                <li className="flex items-center gap-2"><span className="h-1 w-1 rounded-full bg-emerald-400" />Step-by-step action plan to outperform competitors</li>
+                {proPlan?.features.map((feature, index) => (
+                  <li key={feature} className="flex items-center gap-2">
+                    <span className={`h-1 w-1 rounded-full ${index === 0 ? "bg-red-400" : index === 1 ? "bg-amber-400" : index === 2 ? "bg-cyan-400" : index === 3 ? "bg-emerald-400" : "bg-blue-400"}`} />
+                    {feature}
+                  </li>
+                ))}
               </ul>
               <button
                 onClick={() => handleUpgrade("full")}
                 className="mt-5 w-full rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 hover:shadow-xl transition-all"
               >
-                Recover Your Traffic — $49/mo
+                Unlock Full Plan — {proPlan?.launchPrice ? `$${proPlan.launchPrice}` : proPlan?.price}{proPlan?.cadence}
               </button>
               <p className="mt-2 text-center text-[10px] text-red-400 font-medium">~${shockMetrics.estimatedMonthlyLoss.toLocaleString()}/month at risk while you wait</p>
             </div>
