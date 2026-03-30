@@ -1,2 +1,12 @@
 export const BASE_URL = "https://ai-visibility-backend-x3ww.onrender.com";
 export const ANALYZE_API_URL = `${BASE_URL}/analyze`;
+export const STRATEGY_ADVISOR_URL = `${BASE_URL}/strategy-advisor`;
+export const CRITICAL_INSIGHT_URL = `${BASE_URL}/critical-insight`;
+export const CONTENT_STRATEGY_URL = `${BASE_URL}/content-strategy`;
+export const GENERATE_ARTICLE_URL = `${BASE_URL}/generate-article`;
+export const PERFORMANCE_TRACKER_URL = `${BASE_URL}/performance-tracker`;
+export const PORTFOLIO_ANALYSIS_URL = `${BASE_URL}/portfolio-analysis`;
+export const WORKSPACE_URL = `${BASE_URL}/workspace`;
+export const PLAN_FEATURES_URL = `${BASE_URL}/plan-features`;
+export const CHECK_FEATURE_URL = `${BASE_URL}/check-feature`;
+export const GENERATE_REPORT_URL = `${BASE_URL}/generate-report`;
