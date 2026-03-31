@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { GlassCard } from "../../shared/components";
+import { useAnalysis } from "../../shared/hooks/useAnalysis";
+import { computeVisibilityScore, getShockMetrics } from "../../shared/utils/insightEngine";
+import { generateRecoveryPlan } from "../../shared/utils/dataEngines";
 
 const DAY_COLORS = [
   { border: "border-red-500/30", bg: "bg-red-500/10", accent: "text-red-400", glow: "bg-red-500", badge: "bg-red-500/15 text-red-400 border-red-500/30" },
@@ -17,7 +20,7 @@ const IMPACT_COLORS = {
   low: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
 };
 
-export default function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) {
+function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) {
   const [expandedDays, setExpandedDays] = useState({ 0: true });
   const toggleDay = (i) => setExpandedDays(prev => ({ ...prev, [i]: !prev[i] }));
 
@@ -184,3 +187,39 @@ function DayCard({ day, color, expanded, onToggle }) {
     </GlassCard>
   );
 }
+
+  export default function RecoveryPlanPage() {
+    const { data, hasAnalyzedOnce, loading, isStrategyAddonEnabled, unlockStrategyAddon } = useAnalysis();
+    const vis = useMemo(() => computeVisibilityScore(data), [data]);
+    const shock = useMemo(() => getShockMetrics(data), [data]);
+    const plan = useMemo(() => generateRecoveryPlan(data), [data]);
+
+    if (loading && !hasAnalyzedOnce) {
+      return (
+        <div className="flex items-center justify-center py-32">
+          <div className="h-10 w-10 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
+        </div>
+      );
+    }
+    if (!hasAnalyzedOnce) {
+      return (
+        <div className="flex flex-col items-center justify-center py-32 text-center">
+          <span className="text-5xl mb-4">📋</span>
+          <p className="text-lg font-bold text-white">Run an analysis to generate your 7-Day Recovery Plan</p>
+          <p className="text-sm text-slate-400 mt-2">Your personalized day-by-day AI visibility recovery roadmap</p>
+        </div>
+      );
+    }
+    return (
+      <div className="max-w-4xl space-y-6">
+        <RecoveryPlanSection
+          plan={plan}
+          vis={vis}
+          shock={shock}
+          brandName={data.brandName}
+          locked={!isStrategyAddonEnabled}
+          onUnlock={unlockStrategyAddon}
+        />
+      </div>
+    );
+  }

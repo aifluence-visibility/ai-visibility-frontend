@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAnalysis } from "../shared/hooks/useAnalysis";
 import { useWorkspace } from "../shared/hooks/useWorkspace";
 import { ActionModeToggle } from "../shared/components";
-import { computeTrafficLossPct, getShockMetrics } from "../shared/utils/insightEngine";
+import { computeTrafficLossPct } from "../shared/utils/insightEngine";
 import { LumioMark } from "../shared/components/LumioLogo";
 import { PLAN_DETAILS } from "../shared/utils/pricing";
 import { isFakePaymentMode, isStripePaymentMode } from "../shared/config/paymentConfig";
@@ -18,6 +18,7 @@ const NAV = [
   { to: "/app/sentiment",    icon: "💬", label: "Sentiment & Position" },
   { to: "/app/actions",      icon: "🚀", label: "Recommended Actions" },
   { to: "/app/growth",       icon: "📈", label: "Growth Impact"       },
+  { to: "/app/recovery",     icon: "🗓️", label: "Recovery Plan"       },
   { to: "/app/settings",     icon: "⚙️", label: "Settings"            },
   { to: "/app/team",         icon: "👥", label: "Team & Workspace", divider: true },
   { to: "/app/reports",      icon: "📋", label: "Reports"             },
@@ -30,9 +31,6 @@ export default function AppLayout() {
   const navigate = useNavigate();
 
   const trafficLoss = useMemo(() => data ? computeTrafficLossPct(data) : 0, [data]);
-  const shock = useMemo(() => data ? getShockMetrics(data) : { estimatedLostTraffic: 0, estimatedMonthlyLoss: 0 }, [data]);
-  const dailyLostTraffic = useMemo(() => Math.round(shock.estimatedLostTraffic / 30), [shock]);
-  const dailyLostRevenue = useMemo(() => Math.round(shock.estimatedMonthlyLoss / 30), [shock]);
   const showLossBar = isQuickMode && hasAnalyzedOnce && !loading;
 
   return (

@@ -5,6 +5,8 @@ import {
   generateDecisionSummary,
 } from "../../shared/utils/insightEngine";
 import { GlassCard, SectionHeader, KpiCard, StatusBadge, PaywallSection, DecisionSummary } from "../../shared/components";
+import { generateGapAnalysis } from "../../shared/utils/dataEngines";
+import { GapCards } from "../../shared/components/intelligence/GapCards";
 
 export default function OpportunitiesPage() {
   const { data, loading, hasAnalyzedOnce, isQuickMode, setPremiumModalOpen, brandName } = useAnalysis();
@@ -14,6 +16,7 @@ export default function OpportunitiesPage() {
   const topComp = useMemo(() => getTopCompetitor(data), [data]);
   const queryInsights = data?.queryInsights || [];
   const summary = useMemo(() => generateDecisionSummary(data, "opportunities"), [data]);
+  const gapData = useMemo(() => generateGapAnalysis(data), [data]);
 
   if (loading) return <div className="flex items-center justify-center py-32"><div className="h-10 w-10 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" /></div>;
   if (!hasAnalyzedOnce) return <div className="flex flex-col items-center justify-center py-32 text-center"><span className="text-5xl mb-4">💡</span><p className="text-lg font-bold text-white">Run an analysis first</p></div>;
@@ -124,6 +127,12 @@ export default function OpportunitiesPage() {
           )}
         </div>
       </GlassCard>
+
+      <div>
+        <h2 className="mb-1 text-xl font-black text-white">Gap Analysis Engine</h2>
+        <p className="mb-4 text-sm text-slate-400">Content, sources, regions, and prompts where {brandName} is completely absent from AI answers</p>
+        <GapCards gapData={gapData} />
+      </div>
     </div>
   );
 }

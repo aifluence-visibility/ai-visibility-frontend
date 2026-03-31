@@ -16,6 +16,7 @@ import TeamPage from "./pages/team/TeamPage";
 import ReportsPage from "./pages/reports/ReportsPage";
 import { WorkspaceProvider } from "./shared/hooks/useWorkspace";
 import PaymentSuccessPage from "./pages/payment-success/PaymentSuccessPage";
+import RecoveryPlanPage from "./pages/recovery-plan/RecoveryPlanPage";
 
 /* Bridge: LandingPage triggers analysis and navigates into /app */
 function LandingBridge() {
@@ -79,6 +80,7 @@ function App() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="team" element={<TeamPage />} />
             <Route path="reports" element={<ReportsPage />} />
+                      <Route path="recovery" element={<RecoveryPlanPage />} />
           </Route>
         </Routes>
       </AnalysisProvider>
