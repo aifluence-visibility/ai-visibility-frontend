@@ -19,7 +19,7 @@ export function WorkspaceProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const plan = workspace?.plan || "free";
+  const plan = workspace?.plan || "pro";
   // Persist workspace changes
   const setWorkspace = useCallback((ws) => {
     setWorkspaceState(ws);
@@ -35,7 +35,7 @@ export function WorkspaceProvider({ children }) {
   }, [plan]);
 
   // Create workspace
-  const createWorkspace = useCallback(async (name, ownerEmail, selectedPlan = "free") => {
+  const createWorkspace = useCallback(async (name, ownerEmail, selectedPlan = "pro") => {
     setLoading(true); setError("");
     try {
       const res = await fetch(`${BASE_URL}/workspace`, {

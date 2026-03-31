@@ -142,10 +142,9 @@ export function InsightCard({ icon, title, value, description, impact = "medium"
       <p className="mt-2 text-xs text-slate-400">{description}</p>
       {action && <p className="mt-2 text-xs font-semibold text-emerald-400">→ {action}</p>}
       {locked && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-[#0B0F1A]/75 backdrop-blur-[3px] text-center z-10">
-          <span className="text-xl mb-2">�</span>
-          <p className="text-xs font-bold text-red-400">Your visibility data fell further behind today</p>
-          <button onClick={onUnlock} className="mt-2 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-4 py-1.5 text-[10px] font-bold text-white">See Today's Full Insight</button>
+        <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center">
+          <p className="text-xs font-bold text-amber-200">Unlock today’s full insight and next actions.</p>
+          <button onClick={onUnlock} className="mt-2 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-1.5 text-[10px] font-bold text-slate-950">Unlock Insight</button>
         </div>
       )}
     </GlassCard>
@@ -175,7 +174,7 @@ export function PriorityScore({ score }) {
 /* ─── Opportunity List ─── */
 export function OpportunityList({ items, locked, onUnlock }) {
   return (
-    <div className={`space-y-2 ${locked ? "relative" : ""}`}>
+    <div className="space-y-2">
       {items.map((opp) => {
         const diffColor = opp.difficulty === "Easy" ? "text-emerald-400" : opp.difficulty === "Medium" ? "text-amber-400" : "text-red-400";
         return (
@@ -192,10 +191,9 @@ export function OpportunityList({ items, locked, onUnlock }) {
         );
       })}
       {locked && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-[#0B0F1A]/70 backdrop-blur-[3px] text-center">
-          <span className="text-xl mb-2">�</span>
-          <p className="text-xs font-bold text-red-400">Your traffic went to competitors again today</p>
-          <button onClick={onUnlock} className="mt-2 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-4 py-1.5 text-[10px] font-bold text-white">Recover Today's Traffic</button>
+        <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-center">
+          <p className="text-xs font-bold text-amber-200">Unlock deeper opportunity scoring and strategy recommendations.</p>
+          <button onClick={onUnlock} className="mt-2 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-1.5 text-[10px] font-bold text-slate-950">Unlock Strategy</button>
         </div>
       )}
     </div>
@@ -205,19 +203,15 @@ export function OpportunityList({ items, locked, onUnlock }) {
 /* ─── Paywall Section Wrapper ─── */
 export function PaywallSection({ locked, title, description, cta = "Recover Your Traffic", onUnlock, children, ctaColor = "from-red-600 to-orange-500" }) {
   return (
-    <div className="relative">
-      <div className={locked ? "blur-[6px] pointer-events-none select-none" : ""}>
-        {children}
-      </div>
+    <div>
+      {children}
       {locked && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-[#0B0F1A]/70 backdrop-blur-[2px] text-center px-4 z-10">
+        <div className="mt-3 flex flex-col items-center justify-center rounded-2xl border border-amber-400/30 bg-amber-500/10 text-center px-4 py-5">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500/20 to-orange-500/20 border border-red-500/30 mb-3">
             <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
           </div>
-          <p className="text-sm font-bold text-white">You are losing traffic every day you are not visible in AI search.</p>
-          <p className="mt-1 text-xs text-slate-400 font-medium">Your competitors are already taking these positions.</p>
-          {title && <p className="mt-2 text-xs text-red-400/90 font-medium">{title}</p>}
-          {description && <p className="mt-1 text-xs text-slate-400 max-w-md">{description}</p>}
+          <p className="text-sm font-bold text-white">{title || "Unlock premium insights"}</p>
+          <p className="mt-1 text-xs text-slate-300 font-medium">{description || "Get full visibility intelligence and execution guidance."}</p>
           <button onClick={onUnlock} className={`mt-4 rounded-xl bg-gradient-to-r ${ctaColor} px-6 py-2.5 text-xs font-bold text-white shadow-lg hover:shadow-red-500/25 hover:shadow-xl transition-all`}>{cta}</button>
         </div>
       )}
@@ -323,11 +317,9 @@ export function ActionCard({ action, index, onApply, locked, onUnlock }) {
         </div>
       </div>
       {locked && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-[#0B0F1A]/75 backdrop-blur-[3px] text-center z-10">
-          <span className="text-xl mb-2">�</span>
-          <p className="text-xs font-bold text-red-400">Another day without this cost your brand traffic</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Your competitors used these strategies today</p>
-          <button onClick={onUnlock} className="mt-2 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-4 py-1.5 text-[10px] font-bold text-white">Get Your Action Plan</button>
+        <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center">
+          <p className="text-xs font-bold text-amber-200">Unlock this action with full execution details.</p>
+          <button onClick={onUnlock} className="mt-2 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-1.5 text-[10px] font-bold text-slate-950">Get Action Plan</button>
         </div>
       )}
     </GlassCard>
@@ -360,25 +352,21 @@ export function RiskCard({ risk, index }) {
 export function ImpactSimulator({ simulation, catalog, appliedActions, onToggleAction, locked, onUnlock }) {
   if (locked) {
     return (
-      <GlassCard className="p-6 relative">
-        <div className="blur-sm pointer-events-none">
-          <SectionHeader icon="🧪" title="Impact Simulator" subtitle="Model what happens if you apply strategies" />
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            <div className="rounded-xl bg-slate-900/50 p-4 text-center">
-              <p className="text-2xl font-black text-emerald-400">+26</p>
-              <p className="text-xs text-slate-400">visibility points</p>
-            </div>
-            <div className="rounded-xl bg-slate-900/50 p-4 text-center">
-              <p className="text-2xl font-black text-emerald-400">+$2,400</p>
-              <p className="text-xs text-slate-400">monthly revenue</p>
-            </div>
+      <GlassCard className="p-6">
+        <SectionHeader icon="🧪" title="Impact Simulator" subtitle="Model what happens if you apply strategies" />
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          <div className="rounded-xl bg-slate-900/50 p-4 text-center">
+            <p className="text-2xl font-black text-emerald-400">+26</p>
+            <p className="text-xs text-slate-400">visibility points</p>
+          </div>
+          <div className="rounded-xl bg-slate-900/50 p-4 text-center">
+            <p className="text-2xl font-black text-emerald-400">+$2,400</p>
+            <p className="text-xs text-slate-400">monthly revenue</p>
           </div>
         </div>
-        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-[#0B0F1A]/60 backdrop-blur-[2px] text-center z-10">
-          <svg className="h-6 w-6 text-red-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-          <p className="text-sm font-bold text-white">You are losing traffic every day you are not visible in AI search.</p>
-          <p className="text-xs text-slate-400 mt-1">Your competitors are already taking these positions.</p>
-          <button onClick={onUnlock} className="mt-3 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-5 py-2.5 text-xs font-bold text-white hover:shadow-red-500/25 transition-all">Recover Your Traffic</button>
+        <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center">
+          <p className="text-xs font-bold text-amber-200">Unlock simulator controls and scenario projections.</p>
+          <button onClick={onUnlock} className="mt-2 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 px-5 py-2.5 text-xs font-bold text-slate-950 transition-all">Recover Your Traffic</button>
         </div>
       </GlassCard>
     );
@@ -453,10 +441,10 @@ export function ImpactSimulator({ simulation, catalog, appliedActions, onToggleA
 }
 
 /* ─── Feature Gate ─── */
-const PLAN_LABELS = { free: "Free", pro: "Pro", enterprise: "Enterprise" };
-const PLAN_ORDER = ["free", "pro", "enterprise"];
+const PLAN_LABELS = { pro: "Pro", enterprise: "Enterprise" };
+const PLAN_ORDER = ["pro", "enterprise"];
 
-export function FeatureGate({ feature, plan = "free", planFeatures = [], children, requiredPlan }) {
+export function FeatureGate({ feature, plan = "pro", planFeatures = [], children, requiredPlan }) {
   const allowed = planFeatures.includes(feature);
 
   if (allowed) return <>{children}</>;
@@ -464,14 +452,11 @@ export function FeatureGate({ feature, plan = "free", planFeatures = [], childre
   const upgradeTo = requiredPlan || PLAN_ORDER.find(p => p !== plan && PLAN_ORDER.indexOf(p) > PLAN_ORDER.indexOf(plan)) || "pro";
 
   return (
-    <div className="relative rounded-2xl overflow-hidden">
-      {/* Blurred preview */}
-      <div className="pointer-events-none select-none blur-[6px] opacity-40">
+    <div className="rounded-2xl overflow-hidden">
+      <div>
         {children}
       </div>
-      {/* Upgrade overlay */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0A0E1A]/70 backdrop-blur-sm z-10">
-        <div className="rounded-2xl border border-slate-700/50 bg-[#0F1629]/90 p-8 text-center max-w-sm shadow-2xl">
+      <div className="mt-3 flex flex-col items-center justify-center rounded-2xl border border-slate-700/50 bg-[#0F1629]/90 p-8 text-center max-w-sm shadow-2xl mx-auto">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30">
             <span className="text-2xl">🔒</span>
           </div>
@@ -483,7 +468,6 @@ export function FeatureGate({ feature, plan = "free", planFeatures = [], childre
             Upgrade to {PLAN_LABELS[upgradeTo]}
           </button>
         </div>
-      </div>
     </div>
   );
 }

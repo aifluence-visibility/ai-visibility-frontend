@@ -1,5 +1,7 @@
 import React, { useRef, useState } from "react";
 import { LumioMark } from "../shared/components/LumioLogo";
+import { isFakePaymentMode, isStripePaymentMode } from "../shared/config/paymentConfig";
+import { redirectToStripePaymentLink, savePendingPaymentContext } from "../shared/utils/paymentFlow";
 
 const TRUST_MARKS = ["NOVA", "PULSE", "STACK", "FORGE", "ATLAS", "LAYER"];
 
@@ -64,12 +66,13 @@ const ADDON = { name: "7-Day Recovery Plan", monthlyPrice: 19 };
 
 const PRICING = [
   {
-    name: "FREE",
-    price: 0,
-    cadence: "",
-    cta: "Analyze My Visibility",
-    features: ["3 analyses/month", "Basic insights", "Visibility score", "Competitor overview"],
-    recoveryPlan: null,
+    name: "ANALYSIS PASS",
+    launchPrice: 9,
+    originalPrice: null,
+    cadence: "one-time",
+    cta: "Run AI Visibility Analysis",
+    features: ["1 full AI visibility scan", "US, UK, Germany coverage", "Prompt-level competitor detection", "Instant insight dashboard"],
+    recoveryPlan: "preview",
   },
   {
     name: "PRO",
@@ -79,17 +82,17 @@ const PRICING = [
     cta: "Start recovering traffic",
     badge: "Most valuable feature",
     featured: true,
-    features: ["Full analysis", "Competitor insights", "Strategy recommendations", "Tracking", "Content generation"],
-    recoveryPlan: "optional",
+    features: ["Dashboard history", "Tracking over time", "Multiple analyses", "Saved reports", "Competitor intelligence"],
+    recoveryPlan: "optional-strategy",
   },
   {
-    name: "ENTERPRISE",
-    launchPrice: 299,
-    originalPrice: 499,
+    name: "AI STRATEGY ADD-ON",
+    launchPrice: 19,
+    originalPrice: null,
     cadence: "/month",
-    cta: "Unlock your growth plan",
-    features: ["Everything in PRO", "Multi-brand", "Team features", "Reports & exports", "Priority support"],
-    recoveryPlan: "included",
+    cta: "Unlock Strategy",
+    features: ["AI Strategy playbook", "7-Day Recovery Plan", "Prompt targeting roadmap", "Outperform competitor guidance"],
+    recoveryPlan: "standalone",
   },
 ];
 
@@ -103,7 +106,7 @@ function SectionIntro({ eyebrow, title, body, align = "center" }) {
   );
 }
 
-function InputCta({ value, onChange, onSubmit, inputRef, buttonLabel, helperText, compact = false }) {
+function InputCta({ value, onChange, competitors, onCompetitorChange, onSubmit, inputRef, buttonLabel, helperText, compact = false }) {
   return (
     <div className={compact ? "w-full" : "w-full max-w-2xl"}>
       <div className={`rounded-[28px] border border-white/10 bg-white/[0.04] p-2 shadow-[0_20px_80px_rgba(11,19,36,0.55)] backdrop-blur-xl ${compact ? "" : "ring-1 ring-cyan-400/10"}`}>
@@ -128,8 +131,19 @@ function InputCta({ value, onChange, onSubmit, inputRef, buttonLabel, helperText
             {buttonLabel}
           </button>
         </div>
+        <div className="mt-2 grid gap-2 rounded-[20px] border border-white/6 bg-slate-950/35 p-3 md:grid-cols-3">
+          {[0, 1, 2].map((idx) => (
+            <input
+              key={idx}
+              value={competitors[idx] || ""}
+              onChange={(event) => onCompetitorChange(idx, event.target.value)}
+              placeholder={`Competitor ${idx + 1} (optional)`}
+              className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyan-400/40 focus:outline-none"
+            />
+          ))}
+        </div>
       </div>
-      <p className="mt-4 text-sm text-slate-500">{helperText}</p>
+      <p className="mt-4 text-sm text-slate-500">{helperText} We will also detect competitors automatically.</p>
     </div>
   );
 }
@@ -184,18 +198,19 @@ function ValueCard({ title, body, metric }) {
   );
 }
 
-function PricingCard({ plan, billing, addOn, onAddOnChange, onCheckout, onStartFree }) {
-  const isFree = plan.price === 0;
+function PricingCard({ plan, billing, addOn, onAddOnChange, onCheckout, onStartAnalysis }) {
+  const isAnalysisPass = plan.name === "ANALYSIS PASS";
+  const isProPlan = plan.name === "PRO";
+  const isStrategyAddon = plan.name === "AI STRATEGY ADD-ON";
   const isYearly = billing === "yearly";
   const baseMonthly = plan.launchPrice ?? 0;
-  const baseDisplay = isYearly ? Math.round(baseMonthly * 0.8) : baseMonthly;
+  const baseDisplay = isProPlan && isYearly ? Math.round(baseMonthly * 0.8) : baseMonthly;
   const origMonthly = plan.originalPrice ?? 0;
-  const origDisplay = isYearly ? Math.round(origMonthly * 0.8) : origMonthly;
+  const origDisplay = isProPlan && origMonthly ? Math.round(origMonthly * 0.8) : origMonthly;
   const addOnMonthly = ADDON.monthlyPrice;
   const addOnDisplay = isYearly ? Math.round(addOnMonthly * 0.8) : addOnMonthly;
-  const showAddOnToggle = plan.recoveryPlan === "optional";
-  const addOnIncluded = plan.recoveryPlan === "included";
-  const addOnActive = showAddOnToggle ? addOn : addOnIncluded;
+  const showAddOnToggle = isProPlan;
+  const addOnActive = showAddOnToggle ? addOn : false;
   const totalDisplay = baseDisplay + (addOnActive ? addOnDisplay : 0);
 
   return (
@@ -208,10 +223,10 @@ function PricingCard({ plan, billing, addOn, onAddOnChange, onCheckout, onStartF
       <p className={`text-[11px] font-black uppercase tracking-[0.24em] ${plan.featured ? "text-amber-200" : "text-slate-500"}`}>{plan.name}</p>
 
       <div className="mt-5">
-        {isFree ? (
+        {isAnalysisPass ? (
           <div className="flex items-end gap-1">
-            <p className="text-4xl font-black tracking-[-0.05em] text-white">$0</p>
-            <p className="pb-1 text-sm font-semibold text-slate-500">forever</p>
+            <p className="text-4xl font-black tracking-[-0.05em] text-white">${baseDisplay}</p>
+            <p className="pb-1 text-sm font-semibold text-slate-500">one-time</p>
           </div>
         ) : (
           <>
@@ -220,10 +235,10 @@ function PricingCard({ plan, billing, addOn, onAddOnChange, onCheckout, onStartF
                 ${addOnActive ? totalDisplay : baseDisplay}
               </p>
               <p className="pb-1 text-sm font-semibold text-slate-500">
-                {isYearly ? "/mo, billed yearly" : "/month"}
+                {isStrategyAddon ? "/month" : isYearly ? "/mo, billed yearly" : "/month"}
               </p>
             </div>
-            {origDisplay > 0 && (
+            {origDisplay > 0 && isProPlan && (
               <p className="mt-1 text-sm text-slate-500">
                 <span className="line-through">${origDisplay}/mo</span>
                 <span className="ml-2 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black text-emerald-300">Launch price</span>
@@ -256,14 +271,6 @@ function PricingCard({ plan, billing, addOn, onAddOnChange, onCheckout, onStartF
         </div>
       )}
 
-      {addOnIncluded && (
-        <div className="mt-5 rounded-[22px] border border-emerald-400/20 bg-emerald-400/[0.08] p-4">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">&#10003; Included</p>
-          <p className="mt-1 text-sm font-bold text-white">7-Day Recovery Plan</p>
-          <p className="mt-0.5 text-[11px] text-slate-400">Included at no extra cost</p>
-        </div>
-      )}
-
       <ul className="mt-6 space-y-3">
         {plan.features.map((feature) => (
           <li key={feature} className="flex items-center gap-3 text-sm text-slate-300">
@@ -274,7 +281,7 @@ function PricingCard({ plan, billing, addOn, onAddOnChange, onCheckout, onStartF
       </ul>
 
       <button
-        onClick={() => isFree ? onStartFree() : onCheckout(plan)}
+        onClick={() => isAnalysisPass ? onStartAnalysis() : onCheckout(plan)}
         className={`mt-8 w-full rounded-[20px] px-5 py-4 text-sm font-black transition duration-300 ${plan.featured ? "bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 text-slate-950 shadow-[0_20px_45px_rgba(245,158,11,0.28)] hover:shadow-[0_24px_60px_rgba(245,158,11,0.38)]" : "border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"}`}
       >
         {plan.cta}
@@ -305,8 +312,7 @@ function CheckoutModal({ plan, billing, addOn, onClose, onConfirm }) {
         const addOnMonthly = ADDON.monthlyPrice;
         const addOnDisplay = isYearly ? Math.round(addOnMonthly * 0.8) : addOnMonthly;
         const showAddOn = addOn && plan.recoveryPlan === "optional";
-        const addOnIncluded = plan.recoveryPlan === "included";
-        const total = baseDisplay + (showAddOn ? addOnDisplay : 0);
+  const total = baseDisplay + (showAddOn ? addOnDisplay : 0);
 
         return (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#07111f]/85 p-6 backdrop-blur-xl">
@@ -326,17 +332,13 @@ function CheckoutModal({ plan, billing, addOn, onClose, onConfirm }) {
                   <p className="text-lg font-black text-white">${baseDisplay}<span className="text-sm font-semibold text-slate-500">/mo</span></p>
                 </div>
 
-                {(showAddOn || addOnIncluded) && (
-                  <div className={`flex items-center justify-between rounded-2xl border px-5 py-4 ${addOnIncluded ? "border-emerald-400/20 bg-emerald-400/[0.08]" : "border-amber-300/20 bg-amber-300/[0.08]"}`}>
+                {showAddOn && (
+                  <div className="flex items-center justify-between rounded-2xl border border-amber-300/20 bg-amber-300/[0.08] px-5 py-4">
                     <div>
                       <p className="font-bold text-white">7-Day Recovery Plan</p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">{addOnIncluded ? "Included with Enterprise" : "Add-on"}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">Add-on</p>
                     </div>
-                    <div>
-                      {addOnIncluded
-                        ? <span className="text-sm font-black text-emerald-300">FREE</span>
-                        : <p className="text-lg font-black text-white">${addOnDisplay}<span className="text-sm font-semibold text-slate-500">/mo</span></p>}
-                    </div>
+                    <p className="text-lg font-black text-white">${addOnDisplay}<span className="text-sm font-semibold text-slate-500">/mo</span></p>
                   </div>
                 )}
 
@@ -362,30 +364,151 @@ function CheckoutModal({ plan, billing, addOn, onClose, onConfirm }) {
         );
 }
 
+function EntryPaymentModal({ brandName, competitors, onClose, onConfirm, showTestModeLabel }) {
+  const competitorCount = competitors.filter(Boolean).length;
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#07111f]/88 p-6 backdrop-blur-xl">
+      <div className="w-full max-w-lg rounded-[30px] border border-white/10 bg-[#0c1828] p-8 shadow-[0_40px_120px_rgba(2,8,23,0.65)]">
+        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-300/80">Secure checkout</p>
+        <h3 className="mt-3 text-3xl font-bold tracking-[-0.03em] text-white">Run Full AI Visibility Analysis</h3>
+        {showTestModeLabel ? (
+          <p className="mt-2 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-300">
+            Test mode enabled
+          </p>
+        ) : null}
+        <p className="mt-3 text-sm leading-7 text-slate-400">This analysis uses real AI models across multiple prompts and regions.</p>
+
+        <div className="mt-6 space-y-3 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-400">Brand / Domain</span>
+            <span className="font-semibold text-white">{brandName}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-400">User-added competitors</span>
+            <span className="font-semibold text-white">{competitorCount}/3</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-400">Auto regions</span>
+            <span className="font-semibold text-white">US, UK, Germany</span>
+          </div>
+          <div className="h-px bg-white/10" />
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-slate-300">Total</span>
+            <span className="text-2xl font-black tracking-[-0.04em] text-white">$9</span>
+          </div>
+        </div>
+
+        <button
+          onClick={onConfirm}
+          className="mt-6 w-full rounded-[18px] bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 px-5 py-4 text-sm font-black text-slate-950 shadow-[0_20px_45px_rgba(34,211,238,0.28)] transition hover:shadow-[0_24px_60px_rgba(34,211,238,0.38)]"
+        >
+          Pay $9 &#8594; Continue
+        </button>
+        <button onClick={onClose} className="mt-3 w-full text-center text-xs text-slate-500 transition hover:text-slate-300">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPage({ onAnalyze, onSeeDemo }) {
   const [brandName, setBrandName] = useState("");
+  const [competitors, setCompetitors] = useState(["", "", ""]);
   const [billing, setBilling] = useState("monthly");
   const [addOn, setAddOn] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
+  const [entryPaymentOpen, setEntryPaymentOpen] = useState(false);
   const heroInputRef = useRef(null);
   const finalInputRef = useRef(null);
 
-  const startAnalysis = (mode = "quick") => {
+  const onCompetitorChange = (index, value) => {
+    setCompetitors((prev) => prev.map((item, idx) => (idx === index ? value : item)));
+  };
+
+  const getCleanCompetitors = () => competitors.map((item) => item.trim()).filter(Boolean).slice(0, 3);
+
+  const startAnalysis = () => {
     if (!brandName.trim()) {
       heroInputRef.current?.focus();
       return;
     }
 
-    onAnalyze({ brandName: brandName.trim(), mode });
+    setEntryPaymentOpen(true);
   };
 
   const unlockPro = () => {
-    if (!brandName.trim()) {
-      heroInputRef.current?.focus();
+    setCheckoutPlan(PRICING.find((plan) => plan.name === "PRO") || null);
+  };
+
+  const confirmEntryPayment = () => {
+    const paymentPayload = {
+      brandName: brandName.trim(),
+      competitors: getCleanCompetitors(),
+      payEntry: true,
+    };
+
+    if (isFakePaymentMode()) {
+      onAnalyze(paymentPayload);
+      setEntryPaymentOpen(false);
       return;
     }
 
-    onAnalyze({ brandName: brandName.trim(), mode: "full" });
+    if (isStripePaymentMode()) {
+      savePendingPaymentContext(paymentPayload);
+      const redirected = redirectToStripePaymentLink();
+      if (!redirected) {
+        // Safe fallback for preview/testing if Stripe link is missing.
+        onAnalyze(paymentPayload);
+      }
+      setEntryPaymentOpen(false);
+      return;
+    }
+
+    onAnalyze(paymentPayload);
+    setEntryPaymentOpen(false);
+  };
+
+  const confirmCheckout = () => {
+    if (!checkoutPlan) return;
+    if (!brandName.trim()) {
+      heroInputRef.current?.focus();
+      setCheckoutPlan(null);
+      return;
+    }
+    const cleanCompetitors = getCleanCompetitors();
+
+    if (checkoutPlan.name === "ANALYSIS PASS") {
+      setCheckoutPlan(null);
+      setEntryPaymentOpen(true);
+      return;
+    }
+
+    const paymentPayload = {
+      brandName: brandName.trim(),
+      competitors: cleanCompetitors,
+      payEntry: true,
+      upgradePro: checkoutPlan.name === "PRO" || checkoutPlan.name === "AI STRATEGY ADD-ON",
+      unlockStrategy: checkoutPlan.name === "AI STRATEGY ADD-ON" || addOn,
+    };
+
+    if (isFakePaymentMode()) {
+      onAnalyze(paymentPayload);
+      setCheckoutPlan(null);
+      return;
+    }
+
+    if (isStripePaymentMode()) {
+      savePendingPaymentContext(paymentPayload);
+      const redirected = redirectToStripePaymentLink();
+      if (!redirected) {
+        // Safe fallback for preview/testing if Stripe link is missing.
+        onAnalyze(paymentPayload);
+      }
+      setCheckoutPlan(null);
+      return;
+    }
+
+    onAnalyze(paymentPayload);
+    setCheckoutPlan(null);
   };
 
   return (
@@ -442,10 +565,12 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
                 <InputCta
                   value={brandName}
                   onChange={setBrandName}
-                  onSubmit={() => startAnalysis("quick")}
+                  competitors={competitors}
+                  onCompetitorChange={onCompetitorChange}
+                  onSubmit={startAnalysis}
                   inputRef={heroInputRef}
-                  buttonLabel="Analyze My Visibility"
-                  helperText="No signup required / Instant results"
+                  buttonLabel="Analyze your AI Visibility"
+                  helperText="Brand/Domain required. Competitors are optional (up to 3)."
                 />
               </div>
               <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -668,7 +793,7 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
             <SectionIntro
               eyebrow="Pricing"
               title="Upgrade when the visibility gap becomes too expensive"
-              body="Start with a free read on your AI visibility, then move to Pro when you need competitor intelligence and a real recovery plan."
+              body="Start with a one-time analysis pass, then move to Pro for continuous intelligence. AI Strategy and the 7-Day Recovery Plan are unlocked separately as an add-on."
             />
             <div className="mt-8 flex flex-col items-center gap-3">
               <BillingToggle billing={billing} onChange={setBilling} />
@@ -685,7 +810,7 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
                   addOn={addOn}
                   onAddOnChange={setAddOn}
                   onCheckout={setCheckoutPlan}
-                  onStartFree={() => startAnalysis("quick")}
+                  onStartAnalysis={startAnalysis}
                 />
               ))}
             </div>
@@ -698,7 +823,17 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
             billing={billing}
             addOn={addOn}
             onClose={() => setCheckoutPlan(null)}
-            onConfirm={() => { setCheckoutPlan(null); unlockPro(); }}
+            onConfirm={confirmCheckout}
+          />
+        )}
+
+        {entryPaymentOpen && (
+          <EntryPaymentModal
+            brandName={brandName.trim()}
+            competitors={getCleanCompetitors()}
+            showTestModeLabel={isFakePaymentMode()}
+            onClose={() => setEntryPaymentOpen(false)}
+            onConfirm={confirmEntryPayment}
           />
         )}
 
@@ -726,10 +861,12 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
               <InputCta
                 value={brandName}
                 onChange={setBrandName}
-                onSubmit={() => startAnalysis("quick")}
+                competitors={competitors}
+                onCompetitorChange={onCompetitorChange}
+                onSubmit={startAnalysis}
                 inputRef={finalInputRef}
-                buttonLabel="Analyze My Visibility"
-                helperText="No signup required / Instant results"
+                buttonLabel="Analyze your AI Visibility"
+                helperText="Run full analysis across US, UK, and Germany."
                 compact
               />
             </div>

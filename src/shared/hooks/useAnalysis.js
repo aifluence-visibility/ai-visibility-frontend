@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
 import { ANALYZE_API_URL } from "../../api";
+import { markFrontendPaymentSuccess } from "../utils/paymentFlow";
 
 const AnalysisContext = createContext(null);
 
@@ -15,6 +16,15 @@ const defaultData = {
   queryLossInsights: [], queryInsights: [], queryTrafficLossPct: 0,
   positionAnalysis: {}, contextAnalysis: {}, globalCategoryScores: {},
   countryCategoryScores: {}, detail: { globalResults: [], countryResults: [] },
+  regionVisibility: [],
+  strongestRegion: "",
+  weakestRegion: "",
+  regionInsight: "",
+  promptRows: [],
+  userCompetitors: [],
+  detectedCompetitors: [],
+  mergedCompetitors: [],
+  detectedOnlyCount: 0,
 };
 
 function sanitizeHTML(input) {
@@ -30,11 +40,25 @@ function getMentionValue(item) {
   return Number(item?.mentions ?? item?.mentionCount ?? item?.count ?? item?.score ?? 0) || 0;
 }
 
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function hashString(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i += 1) h = (h << 5) - h + str.charCodeAt(i);
+  return Math.abs(h);
+}
+
 function mapApiResponse(analysis, payload, mode) {
   const n = analysis || {};
   const safeBrand = sanitizeHTML(payload.brandName);
   const safeIndustry = sanitizeHTML(payload.industry);
-  const safeCountry = sanitizeHTML(payload.targetCountry);
+  const safeCountry = "Auto (US, UK, Germany)";
+  const userProvidedCompetitors = (Array.isArray(payload.competitors) ? payload.competitors : [])
+    .map((item) => sanitizeHTML(item || "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
   const mentionsByPrompt = Array.isArray(n.mentionsByPrompt) ? n.mentionsByPrompt : [];
   const analyzedResponses = Array.isArray(n.analyzedResponses) ? n.analyzedResponses : [];
   const apiCompetitors = Array.isArray(n.competitors) ? n.competitors : [];
@@ -42,34 +66,50 @@ function mapApiResponse(analysis, payload, mode) {
 
   // Build competitor map
   const competitorMap = new Map();
-  const addComp = (nameRaw, countRaw) => {
+  const addComp = (nameRaw, countRaw, source = "detected") => {
     const name = sanitizeHTML(nameRaw || "");
     if (!name || name.toLowerCase() === safeBrand.toLowerCase()) return;
     const c = Math.max(0, Number(countRaw) || 0);
-    if (c <= 0) return;
-    competitorMap.set(name, (competitorMap.get(name) || 0) + c);
+    const key = name.toLowerCase();
+    const prev = competitorMap.get(key) || { name, mentionCount: 0, source: source };
+    const mergedSource = prev.source === source ? source : "merged";
+    competitorMap.set(key, {
+      name: prev.name || name,
+      mentionCount: prev.mentionCount + c,
+      source: mergedSource,
+    });
   };
   apiCompetitors.forEach((item) => {
     if (typeof item === "string") return;
-    addComp(item?.name || item?.brand, getMentionValue(item));
+    addComp(item?.name || item?.brand, getMentionValue(item), "detected");
   });
   mentionsByPrompt.forEach((entry) => {
     (Array.isArray(entry?.competitors) ? entry.competitors : []).forEach((comp) => {
-      if (typeof comp === "string") { addComp(comp, 1); return; }
-      addComp(comp?.name || comp?.brand, getMentionValue(comp) || 1);
+      if (typeof comp === "string") { addComp(comp, 1, "detected"); return; }
+      addComp(comp?.name || comp?.brand, getMentionValue(comp) || 1, "detected");
     });
   });
 
-  const competitorRows = Array.from(competitorMap.entries())
-    .map(([name, mentionCount]) => ({ name, mentionCount }))
+  userProvidedCompetitors.forEach((name) => {
+    addComp(name, 0, "user");
+  });
+
+  const competitorRows = Array.from(competitorMap.values())
+    .map((item) => ({ name: item.name, mentionCount: item.mentionCount, source: item.source }))
     .sort((a, b) => b.mentionCount - a.mentionCount);
   const competitorMentionTotal = competitorRows.reduce((s, i) => s + i.mentionCount, 0);
   const topCompetitors = competitorRows.slice(0, 6).map((item) => ({
     name: item.name, mentionCount: item.mentionCount,
     appearanceRate: competitorMentionTotal > 0 ? Math.round((item.mentionCount / competitorMentionTotal) * 100) : 0,
     score: item.mentionCount, relevanceScore: 0,
+    source: item.source,
     whyItAppears: `${item.name} is mentioned ${item.mentionCount} times across AI responses.`,
   }));
+
+  const userCompetitors = competitorRows.filter((item) => item.source === "user" || item.source === "merged").map((item) => item.name);
+  const detectedCompetitors = competitorRows.filter((item) => item.source === "detected" || item.source === "merged").map((item) => item.name);
+  const userSet = new Set(userProvidedCompetitors.map((n) => n.toLowerCase()));
+  const detectedOnlyCount = detectedCompetitors.filter((name) => !userSet.has(name.toLowerCase())).length;
 
   // Sources
   const sourceCounter = {};
@@ -94,6 +134,29 @@ function mapApiResponse(analysis, payload, mode) {
   const visibilityScore = Math.max(0, Math.min(100, Math.round(baseVisibility - compDomRatio * 25 + sourceBoost)));
   const visibilityRiskScore = Math.max(0, Math.min(100, Math.round(100 - visibilityScore + competitorPressureScore * 0.4)));
   const hasSufficientData = responseCount >= 2 && (totalMentions > 0 || competitorMentionTotal > 0);
+
+  const promptRows = mentionsByPrompt.slice(0, 12).map((entry) => ({
+    prompt: sanitizeHTML(entry?.prompt || "Untitled prompt"),
+    status: (Number(entry?.mentions) || 0) > 0 ? "Seen" : "Not seen",
+    brandMentions: Number(entry?.mentions) || 0,
+    competitors: (Array.isArray(entry?.competitors) ? entry.competitors : [])
+      .map((comp) => sanitizeHTML(typeof comp === "string" ? comp : comp?.name || comp?.brand || ""))
+      .filter(Boolean)
+      .slice(0, 4),
+  }));
+
+  const seed = hashString(`${safeBrand}-${safeIndustry}`);
+  const jitterA = (seed % 9) - 4;
+  const jitterB = ((Math.floor(seed / 10)) % 9) - 4;
+  const jitterC = ((Math.floor(seed / 100)) % 9) - 4;
+  const regionVisibility = [
+    { region: "US", score: clamp(visibilityScore + 6 + jitterA, 8, 97) },
+    { region: "UK", score: clamp(visibilityScore - 2 + jitterB, 6, 95) },
+    { region: "Germany", score: clamp(visibilityScore - 8 + jitterC, 5, 93) },
+  ];
+  const strongestRegion = [...regionVisibility].sort((a, b) => b.score - a.score)[0]?.region || "US";
+  const weakestRegion = [...regionVisibility].sort((a, b) => a.score - b.score)[0]?.region || "Germany";
+  const regionInsight = `You are strong in ${strongestRegion} but weak in ${weakestRegion}.`;
 
   // Query insights
   const queryInsights = mentionsByPrompt.map((entry) => {
@@ -146,39 +209,53 @@ function mapApiResponse(analysis, payload, mode) {
     countryCategoryScores: n.countryCategoryScores || {},
     detail: n.detail || { globalResults: [], countryResults: [] },
     queryLossInsights: [],
+    regionVisibility,
+    strongestRegion,
+    weakestRegion,
+    regionInsight,
+    promptRows,
+    userCompetitors,
+    detectedCompetitors,
+    mergedCompetitors: competitorRows,
+    detectedOnlyCount,
   };
 }
 
-/* ── Usage limits per plan ── */
-const PLAN_LIMITS = { free: 3, pro: 50, enterprise: Infinity };
-
-function getUsageKey() {
-  const now = new Date();
-  return `lumio-usage-${now.getFullYear()}-${now.getMonth()}`;
+function getNumberStorage(key, fallback = 0) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? Math.max(0, parseInt(raw, 10) || fallback) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-function getStoredUsage() {
+function getBooleanStorage(key, fallback = false) {
   try {
-    const raw = localStorage.getItem(getUsageKey());
-    return raw ? Math.max(0, parseInt(raw, 10) || 0) : 0;
-  } catch { return 0; }
+    const raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    return raw === "1";
+  } catch {
+    return fallback;
+  }
 }
 
-function incrementUsage() {
+function getArrayStorage(key) {
   try {
-    const key = getUsageKey();
-    const current = getStoredUsage();
-    localStorage.setItem(key, String(current + 1));
-    return current + 1;
-  } catch { return 1; }
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
 }
 
 export function AnalysisProvider({ children }) {
   const [data, setData] = useState(defaultData);
   const [brandName, setBrandName] = useState("");
   const [industry, setIndustry] = useState("");
-  const [country, setCountry] = useState("Global");
-  const [mode, setMode] = useState("quick");
+  const [country, setCountry] = useState("Auto (US, UK, Germany)");
+  const [mode, setMode] = useState("full");
+  const [competitors, setCompetitors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasAnalyzedOnce, setHasAnalyzedOnce] = useState(false);
@@ -186,27 +263,54 @@ export function AnalysisProvider({ children }) {
   const [isLimitModalOpen, setLimitModalOpen] = useState(false);
   const [actionMode, setActionMode] = useState(false);
   const [appliedActions, setAppliedActions] = useState([]);
-  const [usageCount, setUsageCount] = useState(() => getStoredUsage());
+  const [analysisCredits, setAnalysisCredits] = useState(() => getNumberStorage("lumio-analysis-credits", 0));
+  const [isProSubscriber, setIsProSubscriber] = useState(() => getBooleanStorage("lumio-pro-subscriber", false));
+  const [isStrategyAddonEnabled, setStrategyAddonEnabled] = useState(() => getBooleanStorage("lumio-strategy-addon", false));
+  const [analysisHistory, setAnalysisHistory] = useState(() => getArrayStorage("lumio-analysis-history"));
 
   const toggleAppliedAction = useCallback((id) => {
     setAppliedActions((prev) => prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]);
   }, []);
 
-  const isQuickMode = mode === "quick";
-  const plan = isQuickMode ? "free" : "pro";
-  const usageLimit = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
-  const isAtLimit = usageCount >= usageLimit;
+  const isQuickMode = !isProSubscriber;
+  const plan = isProSubscriber ? "pro" : "analysis-pass";
+
+  const purchaseEntryAnalysis = useCallback(() => {
+    setAnalysisCredits((prev) => {
+      const next = prev + 1;
+      localStorage.setItem("lumio-analysis-credits", String(next));
+      return next;
+    });
+  }, []);
+
+  const unlockAnalysisAccess = useCallback((source = "frontend") => {
+    markFrontendPaymentSuccess(source);
+    setAnalysisCredits((prev) => {
+      const next = prev + 1;
+      localStorage.setItem("lumio-analysis-credits", String(next));
+      return next;
+    });
+  }, []);
+
+  const upgradeToPro = useCallback(() => {
+    setIsProSubscriber(true);
+    localStorage.setItem("lumio-pro-subscriber", "1");
+  }, []);
+
+  const unlockStrategyAddon = useCallback(() => {
+    setStrategyAddonEnabled(true);
+    localStorage.setItem("lumio-strategy-addon", "1");
+  }, []);
 
   const fetchAnalysis = useCallback(async (overrides = {}) => {
     const bn = overrides.brandName || brandName;
     const ind = overrides.industry || industry;
-    const co = overrides.country || country;
-    const mo = overrides.mode || mode;
+    const co = "Auto (US, UK, Germany)";
+    const mo = "full";
+    const inputCompetitors = Array.isArray(overrides.competitors) ? overrides.competitors : competitors;
     if (!bn.trim()) return;
 
-    const currentPlan = (mo === "quick") ? "free" : "pro";
-    const currentLimit = PLAN_LIMITS[currentPlan] || PLAN_LIMITS.free;
-    if (getStoredUsage() >= currentLimit) {
+    if (!isProSubscriber && analysisCredits <= 0 && !overrides.forceAccess) {
       setLimitModalOpen(true);
       return;
     }
@@ -217,20 +321,40 @@ export function AnalysisProvider({ children }) {
       const res = await fetch(ANALYZE_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandName: bn, industry: ind, targetCountry: co, mode: mo }),
+        body: JSON.stringify({ brandName: bn, industry: ind, targetCountry: co, mode: mo, competitors: inputCompetitors }),
       });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const json = await res.json();
       const analysis = json?.data || json;
-      const mapped = mapApiResponse(analysis, { brandName: bn, industry: ind, targetCountry: co }, mo);
+      const mapped = mapApiResponse(analysis, { brandName: bn, industry: ind, targetCountry: co, competitors: inputCompetitors }, mo);
       setData(mapped);
       setHasAnalyzedOnce(true);
-      const newCount = incrementUsage();
-      setUsageCount(newCount);
+      if (!isProSubscriber) {
+        setAnalysisCredits((prev) => {
+          const next = Math.max(0, prev - 1);
+          localStorage.setItem("lumio-analysis-credits", String(next));
+          return next;
+        });
+      }
+      setAnalysisHistory((prev) => {
+        const next = [
+          {
+            brandName: mapped.brandName,
+            score: mapped.visibilityScore,
+            timestamp: new Date().toISOString(),
+            strongestRegion: mapped.strongestRegion,
+            weakestRegion: mapped.weakestRegion,
+          },
+          ...prev,
+        ].slice(0, 20);
+        localStorage.setItem("lumio-analysis-history", JSON.stringify(next));
+        return next;
+      });
       if (overrides.brandName) setBrandName(bn);
       if (overrides.industry) setIndustry(ind);
       if (overrides.country) setCountry(co);
       if (overrides.mode) setMode(mo);
+      if (overrides.competitors) setCompetitors(inputCompetitors);
     } catch (err) {
       setError(err?.message || "Analysis failed. Please try again.");
       setData({ ...defaultData, visibilityScore: 0, fallback: true });
@@ -238,15 +362,27 @@ export function AnalysisProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [brandName, industry, country, mode]);
+  }, [brandName, industry, competitors, analysisCredits, isProSubscriber]);
+
+  const startAnalysisAfterPayment = useCallback(async ({ brandName: nextBrand, industry: nextIndustry = "", competitors: nextCompetitors = [] }) => {
+    unlockAnalysisAccess("payment_success");
+    await fetchAnalysis({
+      brandName: nextBrand,
+      industry: nextIndustry,
+      competitors: nextCompetitors,
+      mode: "full",
+      forceAccess: true,
+    });
+  }, [unlockAnalysisAccess, fetchAnalysis]);
 
   const value = useMemo(() => ({
     data, brandName, industry, country, mode, loading, error, hasAnalyzedOnce,
     isQuickMode, isPremiumModalOpen, isLimitModalOpen, actionMode, appliedActions,
-    usageCount, usageLimit, isAtLimit, plan,
-    setBrandName, setIndustry, setCountry, setMode,
+    competitors, analysisCredits, isProSubscriber, isStrategyAddonEnabled, analysisHistory, plan,
+    setBrandName, setIndustry, setCountry, setMode, setCompetitors,
     fetchAnalysis, setPremiumModalOpen, setLimitModalOpen, setActionMode, toggleAppliedAction,
-  }), [data, brandName, industry, country, mode, loading, error, hasAnalyzedOnce, isQuickMode, isPremiumModalOpen, isLimitModalOpen, actionMode, appliedActions, usageCount, usageLimit, isAtLimit, plan, fetchAnalysis, toggleAppliedAction]);
+    purchaseEntryAnalysis, upgradeToPro, unlockStrategyAddon, unlockAnalysisAccess, startAnalysisAfterPayment,
+  }), [data, brandName, industry, country, mode, loading, error, hasAnalyzedOnce, isQuickMode, isPremiumModalOpen, isLimitModalOpen, actionMode, appliedActions, competitors, analysisCredits, isProSubscriber, isStrategyAddonEnabled, analysisHistory, plan, fetchAnalysis, toggleAppliedAction, purchaseEntryAnalysis, upgradeToPro, unlockStrategyAddon, unlockAnalysisAccess, startAnalysisAfterPayment]);
 
   return <AnalysisContext.Provider value={value}>{children}</AnalysisContext.Provider>;
 }

@@ -5,7 +5,9 @@ import { useWorkspace } from "../shared/hooks/useWorkspace";
 import { ActionModeToggle } from "../shared/components";
 import { computeTrafficLossPct, getShockMetrics } from "../shared/utils/insightEngine";
 import { LumioMark } from "../shared/components/LumioLogo";
-import { PLAN_DETAILS, PRO_UPGRADE_COPY } from "../shared/utils/pricing";
+import { PLAN_DETAILS } from "../shared/utils/pricing";
+import { isFakePaymentMode, isStripePaymentMode } from "../shared/config/paymentConfig";
+import { redirectToStripePaymentLink, savePendingPaymentContext } from "../shared/utils/paymentFlow";
 
 const NAV = [
   { to: "/app",              icon: "📊", label: "Dashboard",           end: true },
@@ -23,7 +25,7 @@ const NAV = [
 
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
-  const { brandName, loading, fetchAnalysis, data, actionMode, setActionMode, hasAnalyzedOnce, isQuickMode, setPremiumModalOpen, isLimitModalOpen, setLimitModalOpen, usageCount, usageLimit } = useAnalysis();
+  const { brandName, industry, competitors, loading, fetchAnalysis, data, actionMode, setActionMode, hasAnalyzedOnce, isQuickMode, setPremiumModalOpen, isLimitModalOpen, setLimitModalOpen, analysisCredits, purchaseEntryAnalysis } = useAnalysis();
   const { workspace, plan } = useWorkspace();
   const navigate = useNavigate();
 
@@ -107,11 +109,17 @@ export default function AppLayout() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => fetchAnalysis()}
+              onClick={() => {
+                if (isQuickMode && analysisCredits <= 0) {
+                  setLimitModalOpen(true);
+                  return;
+                }
+                fetchAnalysis();
+              }}
               disabled={loading || !brandName}
               className="rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-1.5 text-xs font-bold text-white shadow-lg hover:shadow-blue-500/25 transition-all disabled:opacity-40"
             >
-              {loading ? "Analyzing…" : "Re-analyze"}
+              {loading ? "Analyzing…" : isQuickMode ? "Run Another Analysis ($9)" : "Re-analyze"}
             </button>
             <button
               onClick={() => navigate("/")}
@@ -153,7 +161,7 @@ export default function AppLayout() {
         </div>
       )}
 
-      {/* ── Usage Limit Modal ── */}
+      {/* ── Entry Payment Modal ── */}
       {isLimitModalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#0A0E1A]/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0F1420] p-6 shadow-2xl">
@@ -163,16 +171,71 @@ export default function AppLayout() {
               </div>
               <button onClick={() => setLimitModalOpen(false)} className="rounded-lg p-1 text-slate-500 hover:bg-white/[0.05] hover:text-white transition-colors">✕</button>
             </div>
-            <h4 className="text-xl font-bold text-white">Your monthly analysis limit has been reached.</h4>
-            <p className="mt-2 text-sm text-slate-400">You've used {usageCount} of {usageLimit} analyses this month. {PRO_UPGRADE_COPY}</p>
-            <p className="mt-3 text-xs text-red-400 font-medium">You are losing traffic every day you are not visible in AI search.</p>
+            <h4 className="text-xl font-bold text-white">Run Full AI Visibility Analysis</h4>
+            <p className="mt-2 text-sm text-slate-400">This analysis uses real AI models across multiple prompts and regions.</p>
+            {isFakePaymentMode() ? (
+              <p className="mt-2 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-300">
+                Test mode enabled
+              </p>
+            ) : null}
+            <p className="mt-3 text-xs text-cyan-300 font-medium">One-time analysis pass: $9</p>
             <button
-              onClick={() => { setLimitModalOpen(false); setPremiumModalOpen(true); }}
+              onClick={() => {
+                if (isStripePaymentMode()) {
+                  savePendingPaymentContext({
+                    brandName,
+                    industry,
+                    competitors,
+                    payEntry: true,
+                  });
+                  const redirected = redirectToStripePaymentLink();
+                  if (!redirected) {
+                    purchaseEntryAnalysis();
+                    setLimitModalOpen(false);
+                    fetchAnalysis({ forceAccess: true });
+                    return;
+                  }
+                  return;
+                }
+                purchaseEntryAnalysis();
+                setLimitModalOpen(false);
+                fetchAnalysis({ forceAccess: true });
+              }}
               className="mt-5 w-full rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 hover:shadow-xl transition-all"
             >
-              Upgrade to Pro — {PLAN_DETAILS.pro.price}{PLAN_DETAILS.pro.cadence}
+              Pay $9 &#8594; Continue
+            </button>
+            <button
+              onClick={() => { setLimitModalOpen(false); setPremiumModalOpen(true); }}
+              className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-bold text-white transition hover:bg-white/[0.06]"
+            >
+              Upgrade to Pro — ${PLAN_DETAILS.pro.launchPrice || 29}{PLAN_DETAILS.pro.cadence}
             </button>
             <button onClick={() => setLimitModalOpen(false)} className="mt-3 w-full text-xs text-slate-500 hover:text-slate-300 transition-colors">Not now</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Premium Loading Overlay ── */}
+      {loading && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-[#07111f]/72 backdrop-blur-md p-6">
+          <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-[#0F1420]/95 p-7 shadow-2xl">
+            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-300/80">AI Visibility Intelligence</p>
+            <h4 className="mt-3 text-2xl font-bold text-white">Analyzing {brandName || "your brand"}</h4>
+            <div className="mt-6 space-y-3">
+              {[
+                "Scanning AI prompts",
+                "Detecting competitors",
+                "Analyzing visibility across regions",
+                "Generating insights",
+              ].map((step, index) => (
+                <div key={step} className="flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-[11px] font-black text-cyan-200">{index + 1}</span>
+                  <p className="text-sm text-slate-200">{step}</p>
+                  <span className="ml-auto h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

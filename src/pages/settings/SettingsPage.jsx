@@ -3,18 +3,16 @@ import { useAnalysis } from "../../shared/hooks/useAnalysis";
 import { GlassCard, SectionHeader } from "../../shared/components";
 
 export default function SettingsPage() {
-  const { brandName, industry, country, mode, setBrandName, setIndustry, setCountry, setMode, fetchAnalysis, loading } = useAnalysis();
+  const { brandName, industry, setBrandName, setIndustry, setCountry, setMode, fetchAnalysis, loading } = useAnalysis();
   const [localBrand, setLocalBrand] = useState(brandName);
   const [localIndustry, setLocalIndustry] = useState(industry);
-  const [localCountry, setLocalCountry] = useState(country);
-  const [localMode, setLocalMode] = useState(mode);
 
   const handleSave = () => {
     setBrandName(localBrand);
     setIndustry(localIndustry);
-    setCountry(localCountry);
-    setMode(localMode);
-    fetchAnalysis({ brandName: localBrand, industry: localIndustry, country: localCountry, mode: localMode });
+    setCountry("Auto (US, UK, Germany)");
+    setMode("full");
+    fetchAnalysis({ brandName: localBrand, industry: localIndustry, country: "Auto (US, UK, Germany)", mode: "full" });
   };
 
   return (
@@ -51,46 +49,10 @@ export default function SettingsPage() {
             />
           </div>
 
-          {/* Country */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Target Country</label>
-            <select
-              value={localCountry}
-              onChange={(e) => setLocalCountry(e.target.value)}
-              className="w-full rounded-xl border border-slate-700/50 bg-slate-900/80 px-4 py-3 text-sm text-white focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all"
-            >
-              <option value="Global">Global</option>
-              <option value="United States">United States</option>
-              <option value="United Kingdom">United Kingdom</option>
-              <option value="Germany">Germany</option>
-              <option value="France">France</option>
-              <option value="Canada">Canada</option>
-              <option value="Australia">Australia</option>
-              <option value="India">India</option>
-              <option value="Japan">Japan</option>
-              <option value="Brazil">Brazil</option>
-            </select>
-          </div>
-
-          {/* Mode */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Analysis Mode</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setLocalMode("quick")}
-                className={`rounded-xl border p-4 text-left transition-all ${localMode === "quick" ? "border-blue-500/50 bg-blue-500/10" : "border-slate-700/50 bg-slate-900/50 hover:border-slate-600/50"}`}
-              >
-                <p className="text-sm font-bold text-white">⚡ Quick</p>
-                <p className="text-[11px] text-slate-400 mt-1">Fast analysis with core metrics. Free tier.</p>
-              </button>
-              <button
-                onClick={() => setLocalMode("full")}
-                className={`rounded-xl border p-4 text-left transition-all ${localMode === "full" ? "border-emerald-500/50 bg-emerald-500/10" : "border-slate-700/50 bg-slate-900/50 hover:border-slate-600/50"}`}
-              >
-                <p className="text-sm font-bold text-white">🔬 Full</p>
-                <p className="text-[11px] text-slate-400 mt-1">Deep analysis with all insights. Premium.</p>
-              </button>
-            </div>
+          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">Region Coverage</p>
+            <p className="mt-1 text-sm text-slate-200">Auto mode enabled: US, UK, Germany</p>
+            <p className="mt-1 text-xs text-slate-400">Lumio automatically simulates region-specific AI responses. No manual country selection required.</p>
           </div>
 
           {/* Submit */}

@@ -71,35 +71,33 @@ export default function RecoveryPlanSection({ plan, vis, shock, brandName, locke
         onToggle={() => toggleDay(0)}
       />
 
-      {/* ── Days 2-7 — paywalled ── */}
-      <div className="relative">
-        <div className={locked ? "space-y-4 blur-[6px] pointer-events-none select-none" : "space-y-4"}>
-          {plan.slice(1).map((day, i) => (
-            <DayCard
-              key={day.day}
-              day={day}
-              color={DAY_COLORS[i + 1]}
-              expanded={!!expandedDays[i + 1]}
-              onToggle={() => toggleDay(i + 1)}
-            />
-          ))}
-        </div>
-        {locked ? (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-[#0B0F1A]/64 px-4 text-center backdrop-blur-[2px]">
-            <div className="max-w-md rounded-3xl border border-amber-400/20 bg-slate-950/85 px-6 py-6 shadow-2xl shadow-amber-500/10">
-              <div className="mx-auto mb-3 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">Most Valuable</div>
-              <p className="text-lg font-black text-white">Your recovery plan is ready. Unlock to recover your traffic.</p>
-              <p className="mt-2 text-sm text-slate-400">Days 2–7 reveal the full premium execution path for {brandName}.</p>
-              <button
-                onClick={onUnlock}
-                className="mt-5 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 px-6 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl"
-              >
-                Unlock for $19/month
-              </button>
-            </div>
-          </div>
-        ) : null}
+      {/* ── Days 2-7 — add-on preview (no blur) ── */}
+      <div className="space-y-4">
+        {plan.slice(1).map((day, i) => (
+          <DayCard
+            key={day.day}
+            day={day}
+            color={DAY_COLORS[i + 1]}
+            expanded={!locked && !!expandedDays[i + 1]}
+            onToggle={() => toggleDay(i + 1)}
+          />
+        ))}
       </div>
+      {locked ? (
+        <GlassCard className="p-6 border border-amber-400/30" glow="bg-amber-500">
+          <div className="text-center">
+            <div className="mx-auto mb-3 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">Strategy Add-on</div>
+            <p className="text-lg font-black text-white">Your recovery plan is ready</p>
+            <p className="mt-2 text-sm text-slate-400">Unlock detailed execution for Days 2–7 and turn visibility gaps into weekly wins.</p>
+            <button
+              onClick={onUnlock}
+              className="mt-5 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 px-6 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl"
+            >
+              Unlock Strategy ($19/month)
+            </button>
+          </div>
+        </GlassCard>
+      ) : null}
 
       {/* ── Sticky CTA bar ── */}
       <GlassCard className={`p-5 border ${locked ? "border-amber-400/20" : "border-emerald-500/20"}`} glow={locked ? "bg-amber-500" : "bg-emerald-500"}>

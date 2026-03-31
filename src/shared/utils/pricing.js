@@ -1,12 +1,4 @@
 export const PLAN_DETAILS = {
-  free: {
-    id: "free",
-    label: "FREE",
-    name: "Free",
-    price: "$0",
-    cadence: "",
-    features: ["3 analyses / month", "Basic insights", "Visibility score", "Competitor overview"],
-  },
   pro: {
     id: "pro",
     label: "PRO",
@@ -16,22 +8,21 @@ export const PLAN_DETAILS = {
     price: "$29",
     originalPriceFormatted: "$49",
     cadence: "/month",
-    badge: "Most Valuable",
-    premiumFeature: "7-Day Recovery Plan",
+    badge: "Most Popular",
+    premiumFeature: "Dashboard history + continuous tracking",
     features: [
       "Full AI analysis",
       "Competitor insights",
-      "Content generation",
-      "Tracking",
-      "Strategy recommendations",
+      "Tracking over time",
+      "Multiple analyses",
+      "Saved reports",
+      "Dashboard history",
     ],
   },
   enterprise: {
     id: "enterprise",
     label: "ENTERPRISE",
     name: "Enterprise",
-    price: "Custom pricing",
-    cadence: "",
     launchPrice: 299,
     originalPrice: 499,
     price: "$299",
@@ -41,16 +32,16 @@ export const PLAN_DETAILS = {
   },
 };
 
-export const PRICING_PLAN_ORDER = ["free", "pro", "enterprise"];
+export const PRICING_PLAN_ORDER = ["pro", "enterprise"];
 
 export const PRICING_PLANS = PRICING_PLAN_ORDER.map((planId) => PLAN_DETAILS[planId]);
 
 export const ADD_ON_DETAILS = {
-  id: "recovery_plan",
-  name: "7-Day Recovery Plan",
+  id: "ai_strategy_recovery",
+  name: "AI Strategy & 7-Day Recovery Plan",
   price: 19,
   cadence: "/month",
-  description: "Day-by-day execution sequence to recover AI-lost visibility fast.",
+  description: "Actionable strategy and execution sequence to recover AI-lost visibility fast.",
 };
 
 export const PRO_UPGRADE_COPY =

@@ -18,7 +18,7 @@ const ROLE_PERMS = {
   content: "Analysis, content creation",
 };
 
-const PLAN_LIMITS = { free: 1, pro: 5, enterprise: 50 };
+const PLAN_LIMITS = { pro: 5, enterprise: 50 };
 
 export default function TeamPage() {
   const { workspace, plan, members, loading, error, createWorkspace, addMember, updateMemberRole, removeMember, updatePlan, leaveWorkspace } = useWorkspace();
@@ -65,7 +65,7 @@ export default function TeamPage() {
     );
   }
 
-  const maxMembers = PLAN_LIMITS[plan] || 1;
+  const maxMembers = PLAN_LIMITS[plan] || 5;
   const canAddMore = members.length < maxMembers;
 
   return (
@@ -192,7 +192,7 @@ export default function TeamPage() {
         ) : (
           <div className="mt-4 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-center">
             <p className="text-xs text-amber-300 font-semibold">
-              {plan === "free" ? "Upgrade to Pro to invite team members" : plan === "pro" ? "Upgrade to Enterprise for up to 50 members" : "Maximum members reached"}
+              {plan === "pro" ? "Upgrade to Enterprise for up to 50 members" : "Maximum members reached"}
             </p>
           </div>
         )}

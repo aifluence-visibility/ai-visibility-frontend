@@ -15,25 +15,33 @@ import SettingsPage from "./pages/settings/SettingsPage";
 import TeamPage from "./pages/team/TeamPage";
 import ReportsPage from "./pages/reports/ReportsPage";
 import { WorkspaceProvider } from "./shared/hooks/useWorkspace";
+import PaymentSuccessPage from "./pages/payment-success/PaymentSuccessPage";
 
 /* Bridge: LandingPage triggers analysis and navigates into /app */
 function LandingBridge() {
   const navigate = useNavigate();
-  const { fetchAnalysis, setBrandName, setIndustry, setCountry, setMode } = useAnalysis();
+  const { fetchAnalysis, setBrandName, setIndustry, setCountry, setMode, setCompetitors, upgradeToPro, unlockStrategyAddon, startAnalysisAfterPayment } = useAnalysis();
 
-  const handleAnalyze = ({ brandName, industry = "", country = "Global", mode = "quick" }) => {
+  const handleAnalyze = ({ brandName, industry = "", competitors = [], payEntry = false, upgradePro = false, unlockStrategy = false }) => {
     setBrandName(brandName);
     setIndustry(industry);
-    setCountry(country);
-    setMode(mode);
-    fetchAnalysis({ brandName, industry, country, mode });
+    setCountry("Auto (US, UK, Germany)");
+    setMode("full");
+    setCompetitors(competitors);
+    if (upgradePro) upgradeToPro();
+    if (unlockStrategy) unlockStrategyAddon();
+    if (payEntry) {
+      startAnalysisAfterPayment({ brandName, industry, competitors });
+    } else {
+      fetchAnalysis({ brandName, industry, competitors, mode: "full", country: "Auto (US, UK, Germany)" });
+    }
     navigate("/app");
   };
 
   return (
     <LandingPage
       onAnalyze={handleAnalyze}
-      onSeeDemo={() => handleAnalyze({ brandName: "Stripe", mode: "quick" })}
+      onSeeDemo={() => navigate("/app")}
     />
   );
 }
@@ -45,7 +53,7 @@ function AutoAnalyze() {
   useEffect(() => {
     const brand = params.get("brand");
     if (brand && !hasAnalyzedOnce) {
-      fetchAnalysis({ brandName: brand, industry: params.get("industry") || "", country: params.get("country") || "Global", mode: params.get("mode") || "quick" });
+      fetchAnalysis({ brandName: brand, industry: params.get("industry") || "", country: "Auto (US, UK, Germany)", mode: "full" });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
@@ -58,6 +66,7 @@ function App() {
       <AnalysisProvider>
         <Routes>
           <Route path="/" element={<LandingBridge />} />
+          <Route path="/payment-success" element={<PaymentSuccessPage />} />
           <Route path="/app" element={<><AutoAnalyze /><AppLayout /></>}>
             <Route index element={<DashboardPage />} />
             <Route path="visibility" element={<VisibilityScorePage />} />
