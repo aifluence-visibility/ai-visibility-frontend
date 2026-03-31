@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAnalysis } from "../../shared/hooks/useAnalysis";
 import { GlassCard, KpiCard, ScoreGauge, SectionHeader } from "../../shared/components";
+import { generateReportPdfBlob, downloadReportPdf } from "../../shared/utils/reportDelivery";
 import {
   computeVisibilityScore,
   computeCompetitorDominance,
@@ -96,6 +97,8 @@ export default function DashboardPage() {
   const navigate = useNavigate();
 
   const [activeSection, setActiveSection] = useState("overview");
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [pdfDownloadMessage, setPdfDownloadMessage] = useState("");
 
   const vis = useMemo(() => computeVisibilityScore(data), [data]);
   const compDom = useMemo(() => computeCompetitorDominance(data), [data]);
@@ -198,10 +201,28 @@ export default function DashboardPage() {
     );
   }
 
+  const handleDownloadPdf = async () => {
+    if (downloadingPdf || !data) return;
+    setDownloadingPdf(true);
+    setPdfDownloadMessage("");
+    try {
+      const pdfBlob = await generateReportPdfBlob(data);
+      downloadReportPdf(pdfBlob, data.brandName);
+      setPdfDownloadMessage("Your PDF report has been downloaded");
+      setTimeout(() => setPdfDownloadMessage(""), 3500);
+    } catch (err) {
+      console.error("PDF download error:", err);
+      setPdfDownloadMessage("Failed to download PDF. Please try again.");
+      setTimeout(() => setPdfDownloadMessage(""), 3500);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl space-y-7">
       <GlassCard className="border border-red-500/30 p-6" glow="bg-red-500">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="mb-2 flex items-center gap-2">
               <span className="inline-flex rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-red-300">AI Decision Risk</span>
@@ -214,13 +235,27 @@ export default function DashboardPage() {
               ~{shock.estimatedLostTraffic.toLocaleString()} visitors/mo + ~${shock.estimatedMonthlyLoss.toLocaleString()}/mo going to <span className="font-bold text-red-300">{data.topCompetitors?.[0]?.name || "competitors"}</span> instead of {data.brandName}.
             </p>
           </div>
-          <button
-            onClick={() => setPremiumModalOpen(true)}
-            className="shrink-0 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 px-6 py-3 text-sm font-black text-white shadow-lg transition hover:shadow-red-500/30"
-          >
-            Recover AI visibility →
-          </button>
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {downloadingPdf ? "⏳ Preparing..." : "📥 Export Report as PDF"}
+            </button>
+            <button
+              onClick={() => setPremiumModalOpen(true)}
+              className="shrink-0 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 px-6 py-3 text-sm font-black text-white shadow-lg transition hover:shadow-red-500/30"
+            >
+              Recover AI visibility →
+            </button>
+          </div>
         </div>
+        {pdfDownloadMessage && (
+          <div className="mt-4 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+            ✓ {pdfDownloadMessage}
+          </div>
+        )}
       </GlassCard>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

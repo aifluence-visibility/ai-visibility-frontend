@@ -14,6 +14,8 @@ function formatBrand(brandName) {
 
 export default function HighConversionPaywall({
   brandName,
+  reportEmail,
+  onReportEmailChange,
   preview = { visibilityStart: 0, visibilityEnd: 58, missingQueries: 12, competitorsDetected: 3 },
   onClose,
   onStarter,
@@ -121,6 +123,18 @@ export default function HighConversionPaywall({
               <p className="mt-3 text-center text-[11px] font-bold text-slate-300">
                 Takes 30 seconds • No setup required • Cancel anytime
               </p>
+              <div className="mt-4">
+                <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                  Email for report delivery
+                </label>
+                <input
+                  type="email"
+                  value={reportEmail}
+                  onChange={(event) => onReportEmailChange?.(event.target.value)}
+                  placeholder="you@company.com"
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/35"
+                />
+              </div>
             </div>
 
             <div className="mt-5">

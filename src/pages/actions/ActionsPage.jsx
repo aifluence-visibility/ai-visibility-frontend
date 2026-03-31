@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useAnalysis } from "../../shared/hooks/useAnalysis";
 import {
   computePriorityScore, computeVisibilityScore, generateQuickWins,
@@ -13,9 +13,71 @@ import {
 import StrategyAdvisor from "../../shared/components/StrategyAdvisor";
 import ContentStrategyGenerator from "../../shared/components/ContentStrategyGenerator";
 import ArticleGenerator from "../../shared/components/ArticleGenerator";
+import { detectActionContentType, generateActionContentDraft } from "../../shared/utils/contentGeneration";
+
+function DraftRenderer({ content }) {
+  return content.split("\n").map((line, index) => {
+    if (line.startsWith("# ")) {
+      return <h1 key={index} className="text-lg font-black text-white">{line.slice(2)}</h1>;
+    }
+    if (line.startsWith("## ")) {
+      return <h2 key={index} className="mt-4 text-sm font-black text-cyan-200">{line.slice(3)}</h2>;
+    }
+    if (line.startsWith("### ")) {
+      return <h3 key={index} className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-300">{line.slice(4)}</h3>;
+    }
+    if (/^[-*]\s/.test(line)) {
+      return <p key={index} className="text-xs leading-6 text-slate-300">• {line.replace(/^[-*]\s/, "")}</p>;
+    }
+    if (!line.trim()) {
+      return <div key={index} className="h-2" />;
+    }
+    return <p key={index} className="text-xs leading-6 text-slate-300">{line}</p>;
+  });
+}
+
+function ContentDraftPanel({ draft, onRegenerate, onClose }) {
+  if (!draft) return null;
+
+  return (
+    <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">Generated Content</p>
+          <p className="mt-1 text-sm font-bold text-white">Ready-to-publish structured draft</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => navigator.clipboard?.writeText(draft)}
+            className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-300 transition hover:text-white"
+          >
+            Copy
+          </button>
+          <button
+            onClick={onRegenerate}
+            className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-300 transition hover:text-white"
+          >
+            Regenerate
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-300 transition hover:text-white"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+      <div className="max-h-[420px] overflow-y-auto rounded-xl border border-slate-700/30 bg-slate-950/60 p-4">
+        <DraftRenderer content={draft} />
+      </div>
+    </div>
+  );
+}
 
 export default function ActionsPage() {
   const { data, loading, hasAnalyzedOnce, isQuickMode, setPremiumModalOpen, appliedActions, toggleAppliedAction, brandName, isDemoMode } = useAnalysis();
+  const [contentDrafts, setContentDrafts] = useState({});
+  const [draftVariants, setDraftVariants] = useState({});
 
   const priority = useMemo(() => computePriorityScore(data), [data]);
   const vis = useMemo(() => computeVisibilityScore(data), [data]);
@@ -141,6 +203,26 @@ export default function ActionsPage() {
   const bestBetProjectedAction = top3ProjectedActions.find((item) => item.title === bestBetAction?.title) || null;
   const quickWins48h = top3ProjectedActions.filter((action) => /24-48h|48h|1 day|2 day|3 days/i.test(String(action.timeframe || ""))).slice(0, 3);
 
+  const generateDraftForKey = (key, action, forceVariant) => {
+    const nextVariant = forceVariant ?? (draftVariants[key] || 0);
+    const draft = generateActionContentDraft({ action, data, variant: nextVariant });
+    if (!draft) return;
+    setContentDrafts((prev) => ({ ...prev, [key]: draft }));
+    setDraftVariants((prev) => ({ ...prev, [key]: nextVariant }));
+  };
+
+  const regenerateDraftForKey = (key, action) => {
+    generateDraftForKey(key, action, (draftVariants[key] || 0) + 1);
+  };
+
+  const closeDraftForKey = (key) => {
+    setContentDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-6 max-w-7xl">
       <DecisionSummary summary={summary} />
@@ -176,6 +258,19 @@ export default function ActionsPage() {
                 <p className="text-xs font-bold text-indigo-300">{bestBetProjectedAction.resultProjection.beforeTraffic.toLocaleString()} → {bestBetProjectedAction.resultProjection.afterTraffic.toLocaleString()}</p>
               </div>
             </div>
+            {detectActionContentType(bestBetProjectedAction) && (
+              <button
+                onClick={() => generateDraftForKey("best-bet", bestBetProjectedAction)}
+                className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-bold text-emerald-100 transition hover:bg-emerald-400/15"
+              >
+                Generate Content
+              </button>
+            )}
+            <ContentDraftPanel
+              draft={contentDrafts["best-bet"]}
+              onRegenerate={() => regenerateDraftForKey("best-bet", bestBetProjectedAction)}
+              onClose={() => closeDraftForKey("best-bet")}
+            />
           </div>
         )}
         {isDemoMode && (
@@ -234,6 +329,19 @@ export default function ActionsPage() {
                   <p className="text-xs font-bold text-cyan-300">{action.priorityScore}</p>
                 </div>
               </div>
+              {detectActionContentType(action) && (
+                <button
+                  onClick={() => generateDraftForKey(`top-action-${idx}`, action)}
+                  className="mt-4 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-100 transition hover:bg-cyan-400/15"
+                >
+                  Generate Content
+                </button>
+              )}
+              <ContentDraftPanel
+                draft={contentDrafts[`top-action-${idx}`]}
+                onRegenerate={() => regenerateDraftForKey(`top-action-${idx}`, action)}
+                onClose={() => closeDraftForKey(`top-action-${idx}`)}
+              />
             </div>
           ))}
         </div>
@@ -358,6 +466,19 @@ export default function ActionsPage() {
                     <p className="text-xs font-bold text-amber-300">+${Number(action.expectedRevenueImpact || 0).toLocaleString()}/mo</p>
                   </div>
                 </div>
+                {detectActionContentType(action) && (
+                  <button
+                    onClick={() => generateDraftForKey(`strategy-${i}`, action)}
+                    className="mt-4 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-100 transition hover:bg-cyan-400/15"
+                  >
+                    Generate Content
+                  </button>
+                )}
+                <ContentDraftPanel
+                  draft={contentDrafts[`strategy-${i}`]}
+                  onRegenerate={() => regenerateDraftForKey(`strategy-${i}`, action)}
+                  onClose={() => closeDraftForKey(`strategy-${i}`)}
+                />
               </GlassCard>
             ))}
           </div>

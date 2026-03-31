@@ -6,6 +6,12 @@ import {
   markFrontendPaymentSuccess,
   readPendingPaymentContext,
 } from "../../shared/utils/paymentFlow";
+import {
+  buildReportEmailContent,
+  downloadReportPdf,
+  generateReportPdfBlob,
+  openReportEmailDraft,
+} from "../../shared/utils/reportDelivery";
 
 export default function PaymentSuccessPage() {
   const navigate = useNavigate();
@@ -15,6 +21,7 @@ export default function PaymentSuccessPage() {
     unlockStrategyAddon,
   } = useAnalysis();
   const [message, setMessage] = useState("Confirming payment and unlocking analysis...");
+  const [secondaryMessage, setSecondaryMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -33,16 +40,30 @@ export default function PaymentSuccessPage() {
 
       setMessage("Payment confirmed. Preparing your AI visibility dashboard...");
 
-      await startAnalysisAfterPayment({
+      const analysisData = await startAnalysisAfterPayment({
         brandName: pending.brandName,
         industry: pending.industry || "",
         competitors: pending.competitors || [],
       });
 
+      if (pending.reportEmail && analysisData && !cancelled) {
+        setMessage("Generating your PDF report...");
+        const pdfBlob = await generateReportPdfBlob(analysisData);
+        const emailContent = buildReportEmailContent(analysisData);
+        const fileName = downloadReportPdf(pdfBlob, analysisData.brandName);
+        openReportEmailDraft({
+          email: pending.reportEmail,
+          subject: emailContent.subject,
+          body: `${emailContent.body}\n\nPDF file: ${fileName}`,
+        });
+        setMessage("Your report draft is ready");
+        setSecondaryMessage("Your email client opened with a prefilled draft, and the PDF was downloaded for attachment.");
+      }
+
       clearPendingPaymentContext();
 
       if (!cancelled) {
-        navigate("/app", { replace: true });
+        window.setTimeout(() => navigate("/app", { replace: true }), pending.reportEmail ? 1400 : 400);
       }
     }
 
@@ -59,6 +80,7 @@ export default function PaymentSuccessPage() {
         <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-300/90">Payment success</p>
         <h1 className="mt-3 text-3xl font-bold tracking-[-0.03em] text-white">Analysis access unlocked</h1>
         <p className="mt-3 text-sm leading-7 text-slate-300">{message}</p>
+        {secondaryMessage ? <p className="mt-2 text-xs leading-6 text-slate-400">{secondaryMessage}</p> : null}
       </div>
     </div>
   );

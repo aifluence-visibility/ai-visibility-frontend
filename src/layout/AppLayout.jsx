@@ -28,6 +28,7 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const {
     brandName,
+    reportEmail,
     industry,
     competitors,
     loading,
@@ -35,6 +36,7 @@ export default function AppLayout() {
     data,
     actionMode,
     setActionMode,
+    setReportEmail,
     hasAnalyzedOnce,
     isQuickMode,
     isPremiumModalOpen,
@@ -43,8 +45,6 @@ export default function AppLayout() {
     setLimitModalOpen,
     analysisCredits,
     purchaseEntryAnalysis,
-    upgradeToPro,
-    unlockStrategyAddon,
     isDemoMode,
   } = useAnalysis();
   const { workspace, plan } = useWorkspace();
@@ -55,60 +55,60 @@ export default function AppLayout() {
   const paywallBrand = (brandName || data?.brandName || "").trim();
 
   const handleStarterCheckout = () => {
+    savePendingPaymentContext({
+      brandName: paywallBrand,
+      reportEmail,
+      industry,
+      competitors,
+      payEntry: true,
+    });
+
     if (isStripePaymentMode()) {
-      savePendingPaymentContext({
-        brandName: paywallBrand,
-        industry,
-        competitors,
-        payEntry: true,
-      });
       const redirected = redirectToStripePaymentLink();
       if (redirected) return;
     }
 
-    purchaseEntryAnalysis();
     setPremiumModalOpen(false);
-    fetchAnalysis({ brandName: paywallBrand || brandName, industry, competitors, forceAccess: true });
+    navigate("/payment-success");
   };
 
   const handleProCheckout = () => {
+    savePendingPaymentContext({
+      brandName: paywallBrand,
+      reportEmail,
+      industry,
+      competitors,
+      payEntry: true,
+      upgradePro: true,
+    });
+
     if (isStripePaymentMode()) {
-      savePendingPaymentContext({
-        brandName: paywallBrand,
-        industry,
-        competitors,
-        payEntry: true,
-        upgradePro: true,
-      });
       const redirected = redirectToStripePaymentLink();
       if (redirected) return;
     }
 
-    upgradeToPro();
-    purchaseEntryAnalysis();
     setPremiumModalOpen(false);
-    fetchAnalysis({ brandName: paywallBrand || brandName, industry, competitors, forceAccess: true });
+    navigate("/payment-success");
   };
 
   const handleEnterpriseCheckout = () => {
+    savePendingPaymentContext({
+      brandName: paywallBrand,
+      reportEmail,
+      industry,
+      competitors,
+      payEntry: true,
+      upgradePro: true,
+      unlockStrategy: true,
+    });
+
     if (isStripePaymentMode()) {
-      savePendingPaymentContext({
-        brandName: paywallBrand,
-        industry,
-        competitors,
-        payEntry: true,
-        upgradePro: true,
-        unlockStrategy: true,
-      });
       const redirected = redirectToStripePaymentLink();
       if (redirected) return;
     }
 
-    upgradeToPro();
-    unlockStrategyAddon();
-    purchaseEntryAnalysis();
     setPremiumModalOpen(false);
-    fetchAnalysis({ brandName: paywallBrand || brandName, industry, competitors, forceAccess: true });
+    navigate("/payment-success");
   };
 
   return (
@@ -327,6 +327,8 @@ export default function AppLayout() {
       {isPremiumModalOpen && (
         <HighConversionPaywall
           brandName={paywallBrand}
+          reportEmail={reportEmail}
+          onReportEmailChange={setReportEmail}
           onClose={() => setPremiumModalOpen(false)}
           onStarter={handleStarterCheckout}
           onPro={handleProCheckout}

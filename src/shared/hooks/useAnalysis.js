@@ -587,6 +587,13 @@ export function AnalysisProvider({ children }) {
   const initialCachedData = useMemo(() => readAnalysisCache(), []);
   const [data, setData] = useState(initialCachedData || defaultData);
   const [brandName, setBrandName] = useState("");
+  const [reportEmail, setReportEmail] = useState(() => {
+    try {
+      return localStorage.getItem("lumio-analysis-email") || "";
+    } catch {
+      return "";
+    }
+  });
   const [industry, setIndustry] = useState("");
   const [country, setCountry] = useState("Auto (US, UK, Germany)");
   const [mode, setMode] = useState("full");
@@ -613,6 +620,18 @@ export function AnalysisProvider({ children }) {
       });
     }
   }, [initialCachedData]);
+
+  useEffect(() => {
+    try {
+      if (reportEmail) {
+        localStorage.setItem("lumio-analysis-email", reportEmail);
+      } else {
+        localStorage.removeItem("lumio-analysis-email");
+      }
+    } catch {
+      // Ignore storage errors in restricted environments.
+    }
+  }, [reportEmail]);
 
   const toggleAppliedAction = useCallback((id) => {
     setAppliedActions((prev) => prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]);
@@ -710,6 +729,7 @@ export function AnalysisProvider({ children }) {
       if (overrides.country) setCountry(co);
       if (overrides.mode) setMode(mo);
       if (overrides.competitors) setCompetitors(inputCompetitors);
+      return finalData;
     } catch (err) {
       setError(err?.message || "Analysis failed. Please try again.");
       const fallbackMapped = mapApiResponse(
@@ -726,6 +746,7 @@ export function AnalysisProvider({ children }) {
       setData(finalFallbackData);
       persistAnalysisCache(finalFallbackData);
       setHasAnalyzedOnce(true);
+      return finalFallbackData;
     } finally {
       setLoading(false);
     }
@@ -733,7 +754,7 @@ export function AnalysisProvider({ children }) {
 
   const startAnalysisAfterPayment = useCallback(async ({ brandName: nextBrand, industry: nextIndustry = "", competitors: nextCompetitors = [] }) => {
     unlockAnalysisAccess("payment_success");
-    await fetchAnalysis({
+    return fetchAnalysis({
       brandName: nextBrand,
       industry: nextIndustry,
       competitors: nextCompetitors,
@@ -749,15 +770,15 @@ export function AnalysisProvider({ children }) {
   }, []);
 
   const value = useMemo(() => ({
-    data, brandName, industry, country, mode, loading, error, hasAnalyzedOnce,
+    data, brandName, reportEmail, industry, country, mode, loading, error, hasAnalyzedOnce,
     isQuickMode, isPremiumModalOpen, isLimitModalOpen, actionMode, appliedActions,
     competitors, analysisCredits, isProSubscriber, isStrategyAddonEnabled, analysisHistory, plan,
     isDemoMode,
-    setBrandName, setIndustry, setCountry, setMode, setCompetitors,
+    setBrandName, setReportEmail, setIndustry, setCountry, setMode, setCompetitors,
     fetchAnalysis, setPremiumModalOpen, setLimitModalOpen, setActionMode, toggleAppliedAction,
     purchaseEntryAnalysis, upgradeToPro, unlockStrategyAddon, unlockAnalysisAccess, startAnalysisAfterPayment,
     loadDemoData,
-  }), [data, brandName, industry, country, mode, loading, error, hasAnalyzedOnce, isQuickMode, isPremiumModalOpen, isLimitModalOpen, actionMode, appliedActions, competitors, analysisCredits, isProSubscriber, isStrategyAddonEnabled, analysisHistory, plan, isDemoMode, fetchAnalysis, toggleAppliedAction, purchaseEntryAnalysis, upgradeToPro, unlockStrategyAddon, unlockAnalysisAccess, startAnalysisAfterPayment, loadDemoData]);
+  }), [data, brandName, reportEmail, industry, country, mode, loading, error, hasAnalyzedOnce, isQuickMode, isPremiumModalOpen, isLimitModalOpen, actionMode, appliedActions, competitors, analysisCredits, isProSubscriber, isStrategyAddonEnabled, analysisHistory, plan, isDemoMode, fetchAnalysis, toggleAppliedAction, purchaseEntryAnalysis, upgradeToPro, unlockStrategyAddon, unlockAnalysisAccess, startAnalysisAfterPayment, loadDemoData]);
 
   return <AnalysisContext.Provider value={value}>{children}</AnalysisContext.Provider>;
 }
