@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAnalysis } from "../../shared/hooks/useAnalysis";
 import { GlassCard, KpiCard, ScoreGauge, SectionHeader } from "../../shared/components";
 import {
@@ -23,11 +24,59 @@ import { GapCards } from "../../shared/components/intelligence/GapCards";
 import { ActionSimulator } from "../../shared/components/intelligence/ActionSimulator";
 import { InsightCardV2 } from "../../shared/components/intelligence/InsightCardV2";
 import { PremiumGate } from "../../shared/components/intelligence/PremiumGate";
+import { PLAN_DETAILS, getLaunchCountdownLabel } from "../../shared/utils/pricing";
 
 function scoreBand(score) {
   if (score < 35) return { label: "CRITICAL", tone: "text-red-300" };
   if (score < 60) return { label: "NEEDS WORK", tone: "text-amber-300" };
   return { label: "HEALTHY", tone: "text-emerald-300" };
+}
+
+function DemoContextBlock() {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-violet-400/15 bg-violet-400/5 p-4">
+      <span className="text-base mt-0.5">ℹ️</span>
+      <div>
+        <p className="text-sm font-bold text-violet-200">This is a sample report.</p>
+        <p className="mt-1 text-xs text-slate-400">Your real report will include:</p>
+        <ul className="mt-1.5 space-y-0.5 text-xs text-slate-300">
+          <li>• Your real competitors — not Nexvia AI, Stratify AI, or Dataflare</li>
+          <li>• Your real missing queries — the prompts where your brand loses traffic daily</li>
+          <li>• Your real visibility gaps — by country, source, and content type</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function DemoUpgradeCTA({ navigate }) {
+  const countdownLabel = getLaunchCountdownLabel();
+  return (
+    <div className="rounded-[28px] border border-violet-500/30 bg-gradient-to-r from-violet-950/60 to-indigo-950/40 p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className="rounded-full border border-rose-400/25 bg-rose-400/10 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.22em] text-rose-200">
+              🔒 Your brand is not analyzed yet
+            </span>
+            <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.22em] text-amber-200">
+              ⏱ {countdownLabel} · Price increases after launch
+            </span>
+          </div>
+          <p className="text-lg font-black text-white">Unlock your real AI visibility report</p>
+          <p className="mt-1 text-sm text-slate-400">
+            You are viewing Lumora AI (sample). Your real report will show your actual competitors, your specific visibility gaps, and your custom 7-day recovery plan.
+          </p>
+        </div>
+        <button
+          onClick={() => navigate("/")}
+          className="shrink-0 rounded-2xl bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 px-6 py-3.5 text-sm font-black text-white shadow-[0_16px_45px_rgba(139,92,246,0.3)] transition hover:scale-[1.01] hover:shadow-[0_20px_60px_rgba(139,92,246,0.4)] whitespace-nowrap"
+        >
+          Analyze my brand →
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -41,7 +90,10 @@ export default function DashboardPage() {
     upgradeToPro,
     unlockStrategyAddon,
     setPremiumModalOpen,
+    isDemoMode,
   } = useAnalysis();
+
+  const navigate = useNavigate();
 
   const [activeSection, setActiveSection] = useState("overview");
 
@@ -179,6 +231,45 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+              {/* ── Demo Insights Panel (only in demo mode) ── */}
+              {isDemoMode && Array.isArray(data?.demoInsights) && data.demoInsights.length > 0 && (
+                <div className="rounded-[28px] border border-violet-500/20 bg-gradient-to-br from-violet-950/40 via-slate-900 to-slate-900 p-6 shadow-[0_0_60px_rgba(139,92,246,0.08)]">
+                  <div className="mb-5 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-violet-400/25 bg-violet-400/12 text-base">🔍</div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.28em] text-violet-300/80">Demo Report</p>
+                        <p className="text-base font-black text-white">4 Key Visibility Gaps — Lumora AI</p>
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-violet-200">Sample data</span>
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {data.demoInsights.map((ins) => {
+                      const severityStyle = ins.severity === "critical"
+                        ? { border: "border-red-500/25", bg: "bg-red-500/8", badge: "bg-red-500/15 text-red-300 border-red-500/30", label: "CRITICAL" }
+                        : ins.severity === "high"
+                        ? { border: "border-amber-500/25", bg: "bg-amber-500/8", badge: "bg-amber-500/15 text-amber-300 border-amber-500/30", label: "HIGH" }
+                        : { border: "border-cyan-500/20", bg: "bg-cyan-500/6", badge: "bg-cyan-500/12 text-cyan-300 border-cyan-500/25", label: "MEDIUM" };
+                      return (
+                        <div key={ins.id} className={`rounded-2xl border ${severityStyle.border} ${severityStyle.bg} p-5`}>
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <p className="font-black text-white leading-snug">{ins.title}</p>
+                            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${severityStyle.badge}`}>{severityStyle.label}</span>
+                          </div>
+                          <div className="space-y-2 text-xs leading-5">
+                            <p><span className="font-black uppercase tracking-wide text-slate-400">What: </span><span className="text-slate-300">{ins.what}</span></p>
+                            <p><span className="font-black uppercase tracking-wide text-slate-400">Why: </span><span className="text-slate-300">{ins.why}</span></p>
+                            <p><span className="font-black uppercase tracking-wide text-slate-400">Source: </span><span className="text-slate-400 italic">{ins.source}</span></p>
+                            <p className="rounded-xl border border-white/6 bg-white/[0.03] p-3"><span className="font-black uppercase tracking-wide text-cyan-400">Action: </span><span className="text-slate-200">{ins.action}</span></p>
+                            <p className="font-bold text-emerald-300">↑ {ins.impact}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
         {[
           { key: "overview", label: "Overview", icon: "📊" },
           { key: "competitors", label: "Competitors", icon: "⚔️" },
@@ -292,7 +383,7 @@ export default function DashboardPage() {
                 <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-500/8 p-4">
                   <p className="text-sm font-semibold text-white">PRO required for history tracking.</p>
                   <button onClick={upgradeToPro} className="mt-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-sm font-bold text-white">
-                    Upgrade to PRO ($29/month)
+                    Upgrade to PRO (${PLAN_DETAILS.pro.originalPrice} → ${PLAN_DETAILS.pro.launchPrice}/month)
                   </button>
                 </div>
               ) : (
@@ -349,9 +440,13 @@ export default function DashboardPage() {
 
       {activeSection === "regions" && (
         <div className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <GlassCard className="p-6" glow="bg-cyan-500">
-              <SectionHeader icon="🌍" title="Country Visibility Engine" subtitle={`Strongest: ${countryData.strongestCountry} · Opportunity: ${countryData.opportunityCountry}`} />
+          {isDemoMode && <DemoContextBlock />}
+          {isDemoMode && <DemoUpgradeCTA navigate={navigate} />}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <GlassCard className="border border-amber-400/20 p-6" glow="bg-amber-500">
+              <SectionHeader icon="🔒" title="AI Strategy Add-on" subtitle="7-Day Recovery Plan + Source roadmap" />
+                        {isDemoMode && <DemoUpgradeCTA navigate={navigate} />}
               <div className="mt-4">
                 <CountryVisibilityChart countryData={countryData} />
               </div>
@@ -462,6 +557,7 @@ export default function DashboardPage() {
               <InsightCardV2 key={index} insight={insight} index={index} />
             ))}
           </PremiumGate>
+                  {isDemoMode && <DemoUpgradeCTA navigate={navigate} />}
         </div>
       )}
 
@@ -491,6 +587,7 @@ export default function DashboardPage() {
             previewRows={1}
           >
             <GapCards gapData={gapData} />
+                    {isDemoMode && <DemoUpgradeCTA navigate={navigate} />}
           </PremiumGate>
         </div>
       )}

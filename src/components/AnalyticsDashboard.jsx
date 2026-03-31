@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { ANALYZE_API_URL } from "../api";
-import { PRICING_PLANS } from "../shared/utils/pricing";
+import { LAUNCH_PRICING, PRICING_PLANS } from "../shared/utils/pricing";
 import {
   BarChart,
   Bar,
@@ -2957,9 +2957,15 @@ export default function AnalyticsDashboard({
                       {plan.originalPriceFormatted && (
                         <p className="mt-0.5 text-xs text-slate-500">
                           <span className="line-through">{plan.originalPriceFormatted}{plan.cadence}</span>
-                          <span className="ml-1.5 rounded-full bg-emerald-400/15 px-1.5 py-0.5 text-[10px] font-black text-emerald-300">Launch</span>
+                          <span className="mx-1 text-emerald-300">→</span>
+                          <span className="font-bold text-emerald-200">${plan.launchPrice}{plan.cadence}</span>
                         </p>
                       )}
+                      <div className="mt-2 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-black tracking-[0.16em] text-emerald-200">
+                        {LAUNCH_PRICING.badge}
+                      </div>
+                      <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-amber-200">{LAUNCH_PRICING.availability}</p>
+                      <p className="mt-1 text-xs font-bold text-white">{LAUNCH_PRICING.lockInCopy}</p>
                     </div>
                     {plan.premiumFeature ? (
                       <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-3">

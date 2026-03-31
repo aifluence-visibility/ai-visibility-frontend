@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { ANALYZE_API_URL } from "../../api";
 import { markFrontendPaymentSuccess } from "../utils/paymentFlow";
+import { DEMO_DATA } from "../data/demoData";
 
 const AnalysisContext = createContext(null);
 
@@ -601,6 +602,7 @@ export function AnalysisProvider({ children }) {
   const [isProSubscriber, setIsProSubscriber] = useState(() => getBooleanStorage("lumio-pro-subscriber", false));
   const [isStrategyAddonEnabled, setStrategyAddonEnabled] = useState(() => getBooleanStorage("lumio-strategy-addon", false));
   const [analysisHistory, setAnalysisHistory] = useState(() => getArrayStorage("lumio-analysis-history"));
+  const [isDemoMode, setIsDemoMode] = useState(Boolean(initialCachedData?.isDemo));
 
   useEffect(() => {
     if (initialCachedData) {
@@ -739,15 +741,23 @@ export function AnalysisProvider({ children }) {
       forceAccess: true,
     });
   }, [unlockAnalysisAccess, fetchAnalysis]);
+  const loadDemoData = useCallback(() => {
+    setData(DEMO_DATA);
+    setHasAnalyzedOnce(true);
+    setIsDemoMode(true);
+    persistAnalysisCache(DEMO_DATA);
+  }, []);
 
   const value = useMemo(() => ({
     data, brandName, industry, country, mode, loading, error, hasAnalyzedOnce,
     isQuickMode, isPremiumModalOpen, isLimitModalOpen, actionMode, appliedActions,
     competitors, analysisCredits, isProSubscriber, isStrategyAddonEnabled, analysisHistory, plan,
+    isDemoMode,
     setBrandName, setIndustry, setCountry, setMode, setCompetitors,
     fetchAnalysis, setPremiumModalOpen, setLimitModalOpen, setActionMode, toggleAppliedAction,
     purchaseEntryAnalysis, upgradeToPro, unlockStrategyAddon, unlockAnalysisAccess, startAnalysisAfterPayment,
-  }), [data, brandName, industry, country, mode, loading, error, hasAnalyzedOnce, isQuickMode, isPremiumModalOpen, isLimitModalOpen, actionMode, appliedActions, competitors, analysisCredits, isProSubscriber, isStrategyAddonEnabled, analysisHistory, plan, fetchAnalysis, toggleAppliedAction, purchaseEntryAnalysis, upgradeToPro, unlockStrategyAddon, unlockAnalysisAccess, startAnalysisAfterPayment]);
+    loadDemoData,
+  }), [data, brandName, industry, country, mode, loading, error, hasAnalyzedOnce, isQuickMode, isPremiumModalOpen, isLimitModalOpen, actionMode, appliedActions, competitors, analysisCredits, isProSubscriber, isStrategyAddonEnabled, analysisHistory, plan, isDemoMode, fetchAnalysis, toggleAppliedAction, purchaseEntryAnalysis, upgradeToPro, unlockStrategyAddon, unlockAnalysisAccess, startAnalysisAfterPayment, loadDemoData]);
 
   return <AnalysisContext.Provider value={value}>{children}</AnalysisContext.Provider>;
 }

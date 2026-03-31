@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { GlassCard } from "../../shared/components";
+import { GlassCard, DemoConversionCta } from "../../shared/components";
 import { useAnalysis } from "../../shared/hooks/useAnalysis";
 import { computeVisibilityScore, getShockMetrics } from "../../shared/utils/insightEngine";
 import { generateRecoveryPlan } from "../../shared/utils/dataEngines";
@@ -20,7 +20,7 @@ const IMPACT_COLORS = {
   low: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
 };
 
-function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) {
+function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock, previewUnlockedCount = 1, isDemoPreview = false }) {
   const [expandedDays, setExpandedDays] = useState({ 0: true });
   const toggleDay = (i) => setExpandedDays(prev => ({ ...prev, [i]: !prev[i] }));
 
@@ -30,6 +30,9 @@ function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) 
   const totalRevenueRecovery = Math.round(shock.estimatedMonthlyLoss * 0.45);
   const totalActions = plan.reduce((sum, d) => sum + d.actions.length, 0);
   const regionFocus = ["US", "UK", "Germany"];
+  const unlockedPreview = Math.min(plan.length, Math.max(1, previewUnlockedCount));
+  const visiblePlan = plan.slice(0, unlockedPreview);
+  const lockedRemainder = plan.slice(unlockedPreview);
 
   return (
     <div className="space-y-4">
@@ -70,38 +73,41 @@ function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) 
         </div>
       </GlassCard>
 
-      {/* ── Day 1 — always visible (free teaser) ── */}
-      <DayCard
-        day={plan[0]}
-        index={0}
-        color={DAY_COLORS[0]}
-        expanded={!!expandedDays[0]}
-        onToggle={() => toggleDay(0)}
-      />
-
-      {/* ── Days 2-7 — add-on preview (no blur) ── */}
       <div className="space-y-4">
-        {plan.slice(1).map((day, i) => (
+        {visiblePlan.map((day, i) => (
           <DayCard
             key={day.day}
             day={day}
-            color={DAY_COLORS[i + 1]}
-            expanded={!locked && !!expandedDays[i + 1]}
-            onToggle={() => toggleDay(i + 1)}
+            color={DAY_COLORS[i]}
+            expanded={!!expandedDays[i]}
+            onToggle={() => toggleDay(i)}
           />
         ))}
       </div>
+      {lockedRemainder.length > 0 && (
+        <div className="space-y-3">
+          {lockedRemainder.map((day, index) => (
+            <LockedDayPreview key={day.day} day={day} color={DAY_COLORS[(unlockedPreview + index) % DAY_COLORS.length]} />
+          ))}
+        </div>
+      )}
       {locked ? (
         <GlassCard className="p-6 border border-amber-400/30" glow="bg-amber-500">
           <div className="text-center">
-            <div className="mx-auto mb-3 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">Full AI Recovery System Add-on</div>
+            <div className="mx-auto mb-3 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">
+              {isDemoPreview ? "Demo Preview Lock" : "Full AI Recovery System Add-on"}
+            </div>
             <p className="text-lg font-black text-white">Your recovery plan is ready</p>
-            <p className="mt-2 text-sm text-slate-400">Unlock full Task/Output/Result execution for Days 2–7 plus global and US/UK/Germany country guidance.</p>
+            <p className="mt-2 text-sm text-slate-400">
+              {isDemoPreview
+                ? `You can view Days 1-${unlockedPreview}. Unlock the remaining ${lockedRemainder.length} days to get the full plan for your own brand.`
+                : "Unlock full Task/Output/Result execution for Days 2–7 plus global and US/UK/Germany country guidance."}
+            </p>
             <button
               onClick={onUnlock}
               className="mt-5 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 px-6 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl"
             >
-              Unlock Strategy ($19/month)
+              {isDemoPreview ? "Unlock my plan" : "Unlock Strategy ($19/month)"}
             </button>
           </div>
         </GlassCard>
@@ -113,7 +119,7 @@ function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) 
           <div className="text-center md:text-left">
             <p className="text-sm font-bold text-white">{locked ? "Your recovery plan is ready. Unlock to recover your traffic." : "Your full recovery plan is unlocked."}</p>
             <p className="text-xs text-slate-400 mt-0.5">{locked ? "The premium 7-Day Recovery Plan is the fastest path to reclaim lost AI demand." : "Use the full 7-day sequence to execute, track progress, and recover visibility."}</p>
-            <p className={`text-[11px] font-medium mt-1 ${locked ? "text-amber-200/90" : "text-emerald-300/90"}`}>{locked ? "$9 gives analysis only. Unlock $19 Recovery System for exact execution." : "Keep moving day by day until the visibility gap closes."}</p>
+            <p className={`text-[11px] font-medium mt-1 ${locked ? "text-amber-200/90" : "text-emerald-300/90"}`}>{locked ? "Starter gives you analysis. Add the $19 Recovery System for exact execution." : "Keep moving day by day until the visibility gap closes."}</p>
           </div>
           {locked ? (
             <button
@@ -181,6 +187,20 @@ function DayCard({ day, color, expanded, onToggle }) {
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Task</p>
             <p className="mt-1 text-sm text-slate-200">{day.task || day.objective}</p>
           </div>
+          {(day.timeRequired || day.difficulty) && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {day.timeRequired && (
+                <span className="rounded-full border border-slate-600/40 bg-slate-800 px-3 py-1 text-[10px] font-bold text-slate-400">⏱ {day.timeRequired}</span>
+              )}
+              {day.difficulty && (
+                <span className={`rounded-full border px-3 py-1 text-[10px] font-bold ${
+                  day.difficulty === "Easy" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" :
+                  day.difficulty === "Medium" ? "border-amber-500/30 bg-amber-500/10 text-amber-400" :
+                  "border-red-500/30 bg-red-500/10 text-red-400"
+                }`}>{day.difficulty}</span>
+              )}
+            </div>
+          )}
           <div className="mb-3 rounded-lg border border-slate-700/30 bg-slate-900/50 p-3">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Output</p>
             <div className="mt-1 space-y-1">
@@ -209,8 +229,35 @@ function DayCard({ day, color, expanded, onToggle }) {
   );
 }
 
-  export default function RecoveryPlanPage() {
-    const { data, hasAnalyzedOnce, loading, isStrategyAddonEnabled, unlockStrategyAddon } = useAnalysis();
+function LockedDayPreview({ day, color }) {
+  return (
+    <GlassCard className={`overflow-hidden border ${color.border} opacity-90`} glow={color.glow}>
+      <div className="relative p-5">
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/70 via-slate-950/75 to-slate-950/70 backdrop-blur-[2px]" />
+        <div className="relative flex items-center gap-4">
+          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${color.bg} border ${color.border} shrink-0`}>
+            <span className="text-xl opacity-80">🔒</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${color.badge}`}>
+                Day {day.day}
+              </span>
+              <span className="inline-flex rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
+                Locked preview
+              </span>
+            </div>
+            <p className="text-sm font-bold text-white">{day.title}</p>
+            <p className="mt-1 text-xs text-slate-400">{day.theme}</p>
+          </div>
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
+export default function RecoveryPlanPage() {
+    const { data, hasAnalyzedOnce, loading, isStrategyAddonEnabled, unlockStrategyAddon, isDemoMode, setPremiumModalOpen } = useAnalysis();
     const vis = useMemo(() => computeVisibilityScore(data), [data]);
     const shock = useMemo(() => getShockMetrics(data), [data]);
     const plan = useMemo(() => generateRecoveryPlan(data), [data]);
@@ -231,16 +278,30 @@ function DayCard({ day, color, expanded, onToggle }) {
         </div>
       );
     }
+    const activePlan = isDemoMode && Array.isArray(data?.demoExecutionPlan) && data.demoExecutionPlan.length > 0
+      ? data.demoExecutionPlan
+      : plan;
+    const previewUnlockedCount = isDemoMode ? 3 : isStrategyAddonEnabled ? activePlan.length : 1;
+    const isLocked = isDemoMode || !isStrategyAddonEnabled;
+
     return (
       <div className="max-w-4xl space-y-6">
         <RecoveryPlanSection
-          plan={plan}
+          plan={activePlan}
           vis={vis}
           shock={shock}
           brandName={data.brandName}
-          locked={!isStrategyAddonEnabled}
-          onUnlock={unlockStrategyAddon}
+          locked={isLocked}
+          previewUnlockedCount={previewUnlockedCount}
+          isDemoPreview={isDemoMode}
+          onUnlock={isDemoMode ? () => setPremiumModalOpen(true) : unlockStrategyAddon}
         />
+        {isDemoMode && (
+          <DemoConversionCta
+            title="Want this for your brand?"
+            subtitle="You are viewing a sample report. Your competitors may already be gaining visibility. Enter your brand to unlock the remaining days and see your own recovery plan."
+          />
+        )}
       </div>
     );
-  }
+}

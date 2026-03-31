@@ -21,7 +21,7 @@ import RecoveryPlanPage from "./pages/recovery-plan/RecoveryPlanPage";
 /* Bridge: LandingPage triggers analysis and navigates into /app */
 function LandingBridge() {
   const navigate = useNavigate();
-  const { fetchAnalysis, setBrandName, setIndustry, setCountry, setMode, setCompetitors, upgradeToPro, unlockStrategyAddon, startAnalysisAfterPayment } = useAnalysis();
+  const { fetchAnalysis, setBrandName, setIndustry, setCountry, setMode, setCompetitors, upgradeToPro, unlockStrategyAddon, startAnalysisAfterPayment, loadDemoData } = useAnalysis();
 
   const handleAnalyze = ({ brandName, industry = "", competitors = [], payEntry = false, upgradePro = false, unlockStrategy = false }) => {
     setBrandName(brandName);
@@ -39,10 +39,16 @@ function LandingBridge() {
     navigate("/app");
   };
 
+  const handleViewDemo = () => {
+    loadDemoData();
+    navigate("/app");
+  };
+
   return (
     <LandingPage
       onAnalyze={handleAnalyze}
       onSeeDemo={() => navigate("/app")}
+      onViewDemo={handleViewDemo}
     />
   );
 }

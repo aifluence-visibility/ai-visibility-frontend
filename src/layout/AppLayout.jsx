@@ -2,10 +2,10 @@ import React, { useState, useMemo } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAnalysis } from "../shared/hooks/useAnalysis";
 import { useWorkspace } from "../shared/hooks/useWorkspace";
-import { ActionModeToggle } from "../shared/components";
+import { ActionModeToggle, HighConversionPaywall } from "../shared/components";
 import { computeTrafficLossPct } from "../shared/utils/insightEngine";
 import { LumioMark } from "../shared/components/LumioLogo";
-import { PLAN_DETAILS } from "../shared/utils/pricing";
+import { LAUNCH_PRICING, PLAN_DETAILS, getLaunchCountdownLabel } from "../shared/utils/pricing";
 import { isFakePaymentMode, isStripePaymentMode } from "../shared/config/paymentConfig";
 import { redirectToStripePaymentLink, savePendingPaymentContext } from "../shared/utils/paymentFlow";
 
@@ -26,12 +26,90 @@ const NAV = [
 
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
-  const { brandName, industry, competitors, loading, fetchAnalysis, data, actionMode, setActionMode, hasAnalyzedOnce, isQuickMode, setPremiumModalOpen, isLimitModalOpen, setLimitModalOpen, analysisCredits, purchaseEntryAnalysis } = useAnalysis();
+  const {
+    brandName,
+    industry,
+    competitors,
+    loading,
+    fetchAnalysis,
+    data,
+    actionMode,
+    setActionMode,
+    hasAnalyzedOnce,
+    isQuickMode,
+    isPremiumModalOpen,
+    setPremiumModalOpen,
+    isLimitModalOpen,
+    setLimitModalOpen,
+    analysisCredits,
+    purchaseEntryAnalysis,
+    upgradeToPro,
+    unlockStrategyAddon,
+    isDemoMode,
+  } = useAnalysis();
   const { workspace, plan } = useWorkspace();
   const navigate = useNavigate();
 
   const trafficLoss = useMemo(() => data ? computeTrafficLossPct(data) : 0, [data]);
   const showLossBar = isQuickMode && hasAnalyzedOnce && !loading;
+  const paywallBrand = (brandName || data?.brandName || "").trim();
+
+  const handleStarterCheckout = () => {
+    if (isStripePaymentMode()) {
+      savePendingPaymentContext({
+        brandName: paywallBrand,
+        industry,
+        competitors,
+        payEntry: true,
+      });
+      const redirected = redirectToStripePaymentLink();
+      if (redirected) return;
+    }
+
+    purchaseEntryAnalysis();
+    setPremiumModalOpen(false);
+    fetchAnalysis({ brandName: paywallBrand || brandName, industry, competitors, forceAccess: true });
+  };
+
+  const handleProCheckout = () => {
+    if (isStripePaymentMode()) {
+      savePendingPaymentContext({
+        brandName: paywallBrand,
+        industry,
+        competitors,
+        payEntry: true,
+        upgradePro: true,
+      });
+      const redirected = redirectToStripePaymentLink();
+      if (redirected) return;
+    }
+
+    upgradeToPro();
+    purchaseEntryAnalysis();
+    setPremiumModalOpen(false);
+    fetchAnalysis({ brandName: paywallBrand || brandName, industry, competitors, forceAccess: true });
+  };
+
+  const handleEnterpriseCheckout = () => {
+    if (isStripePaymentMode()) {
+      savePendingPaymentContext({
+        brandName: paywallBrand,
+        industry,
+        competitors,
+        payEntry: true,
+        upgradePro: true,
+        unlockStrategy: true,
+      });
+      const redirected = redirectToStripePaymentLink();
+      if (redirected) return;
+    }
+
+    upgradeToPro();
+    unlockStrategyAddon();
+    purchaseEntryAnalysis();
+    setPremiumModalOpen(false);
+    fetchAnalysis({ brandName: paywallBrand || brandName, industry, competitors, forceAccess: true });
+  };
 
   return (
     <div className="flex h-screen bg-[#0A0E1A] text-white overflow-hidden">
@@ -117,7 +195,7 @@ export default function AppLayout() {
               disabled={loading || !brandName}
               className="rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-1.5 text-xs font-bold text-white shadow-lg hover:shadow-blue-500/25 transition-all disabled:opacity-40"
             >
-              {loading ? "Analyzing…" : isQuickMode ? "Run Another Analysis ($9)" : "Re-analyze"}
+              {loading ? "Analyzing…" : isQuickMode ? "Run Another Analysis (Starter $59/mo)" : "Re-analyze"}
             </button>
             <button
               onClick={() => navigate("/")}
@@ -127,6 +205,36 @@ export default function AppLayout() {
             </button>
           </div>
         </header>
+
+        {/* Demo Mode Banner */}
+        {isDemoMode && (
+          <div className="shrink-0 border-b border-violet-500/20 bg-gradient-to-r from-violet-950/70 via-indigo-950/60 to-violet-950/70 px-6 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-violet-400/30 bg-violet-400/15 text-xs font-black text-violet-200">
+                  ▶
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                    <span className="text-[10px] font-black uppercase tracking-[0.28em] text-violet-300/80">Demo Mode</span>
+                    <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-amber-200">
+                      ⏱ {getLaunchCountdownLabel()} · Price increases after launch
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-300 truncate">
+                    Viewing <span className="text-violet-200">Lumora AI</span> (sample) — analyze your own brand to unlock your real gaps and 7-day recovery plan.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate("/")}
+                className="shrink-0 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-500 px-4 py-1.5 text-xs font-black text-white shadow-[0_8px_24px_rgba(139,92,246,0.25)] transition hover:shadow-[0_12px_32px_rgba(139,92,246,0.35)] hover:scale-[1.02] whitespace-nowrap"
+              >
+                Analyze my brand →
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Page content */}
         <main className={`flex-1 overflow-y-auto px-8 py-8 ${showLossBar ? "pb-20" : ""}`}>
@@ -176,7 +284,9 @@ export default function AppLayout() {
                 Test mode enabled
               </p>
             ) : null}
-            <p className="mt-3 text-xs text-cyan-300 font-medium">One-time analysis pass: $9</p>
+            <p className="mt-3 text-xs font-medium text-cyan-300">Starter launch price: <span className="line-through text-slate-500">$99</span> → $59/month</p>
+            <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-amber-200">{LAUNCH_PRICING.availability}</p>
+            <p className="mt-1 text-xs font-bold text-white">{LAUNCH_PRICING.lockInCopy}</p>
             <button
               onClick={() => {
                 if (isStripePaymentMode()) {
@@ -201,17 +311,27 @@ export default function AppLayout() {
               }}
               className="mt-5 w-full rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 hover:shadow-xl transition-all"
             >
-              Pay $9 &#8594; Continue
+              Lock Starter at $59/mo &#8594; Continue
             </button>
             <button
               onClick={() => { setLimitModalOpen(false); setPremiumModalOpen(true); }}
               className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-bold text-white transition hover:bg-white/[0.06]"
             >
-              Upgrade to Pro — ${PLAN_DETAILS.pro.launchPrice || 29}{PLAN_DETAILS.pro.cadence}
+              Upgrade to Pro — ${PLAN_DETAILS.pro.originalPrice} → ${PLAN_DETAILS.pro.launchPrice}{PLAN_DETAILS.pro.cadence}
             </button>
             <button onClick={() => setLimitModalOpen(false)} className="mt-3 w-full text-xs text-slate-500 hover:text-slate-300 transition-colors">Not now</button>
           </div>
         </div>
+      )}
+
+      {isPremiumModalOpen && (
+        <HighConversionPaywall
+          brandName={paywallBrand}
+          onClose={() => setPremiumModalOpen(false)}
+          onStarter={handleStarterCheckout}
+          onPro={handleProCheckout}
+          onEnterprise={handleEnterpriseCheckout}
+        />
       )}
 
       {/* ── Premium Loading Overlay ── */}

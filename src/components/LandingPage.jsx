@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { LumioMark } from "../shared/components/LumioLogo";
 import { isFakePaymentMode, isStripePaymentMode } from "../shared/config/paymentConfig";
 import { redirectToStripePaymentLink, savePendingPaymentContext } from "../shared/utils/paymentFlow";
+import { ADD_ON_DETAILS, LAUNCH_PRICING, PRICING_PLANS, getLaunchCountdownLabel } from "../shared/utils/pricing";
 
 const TRUST_MARKS = ["NOVA", "PULSE", "STACK", "FORGE", "ATLAS", "LAYER"];
 
@@ -62,39 +63,17 @@ const RECOVERY_DAYS = [
   { day: "Day 7", title: "Lock in growth loop", note: "Turn wins into a repeatable AI growth system." },
 ];
 
-const ADDON = { name: "7-Day Recovery Plan", monthlyPrice: 19 };
+const ADDON = { name: ADD_ON_DETAILS.name, monthlyPrice: ADD_ON_DETAILS.price };
 
-const PRICING = [
-  {
-    name: "ANALYSIS PASS",
-    launchPrice: 9,
-    originalPrice: null,
-    cadence: "one-time",
-    cta: "Run AI Visibility Analysis",
-    features: ["1 full AI visibility scan", "US, UK, Germany coverage", "Prompt-level competitor detection", "Instant insight dashboard"],
-    recoveryPlan: "preview",
-  },
-  {
-    name: "PRO",
-    launchPrice: 29,
-    originalPrice: 49,
-    cadence: "/month",
-    cta: "Start recovering traffic",
-    badge: "Most valuable feature",
-    featured: true,
-    features: ["Dashboard history", "Tracking over time", "Multiple analyses", "Saved reports", "Competitor intelligence"],
-    recoveryPlan: "optional-strategy",
-  },
-  {
-    name: "AI STRATEGY ADD-ON",
-    launchPrice: 19,
-    originalPrice: null,
-    cadence: "/month",
-    cta: "Unlock Strategy",
-    features: ["AI Strategy playbook", "7-Day Recovery Plan", "Prompt targeting roadmap", "Outperform competitor guidance"],
-    recoveryPlan: "standalone",
-  },
-];
+const PRICING = PRICING_PLANS.map((plan) => ({
+  ...plan,
+  cta: plan.id === "starter" ? "Start Starter" : plan.id === "pro" ? "Start Pro" : "Start Enterprise",
+  featured: plan.id === "pro",
+}));
+
+function getDisplayAmount(amount, billing) {
+  return billing === "yearly" ? Math.round((amount || 0) * 0.8) : amount || 0;
+}
 
 function SectionIntro({ eyebrow, title, body, align = "center" }) {
   return (
@@ -199,19 +178,14 @@ function ValueCard({ title, body, metric }) {
 }
 
 function PricingCard({ plan, billing, addOn, onAddOnChange, onCheckout, onStartAnalysis }) {
-  const isAnalysisPass = plan.name === "ANALYSIS PASS";
-  const isProPlan = plan.name === "PRO";
-  const isStrategyAddon = plan.name === "AI STRATEGY ADD-ON";
+  const isStarterPlan = plan.id === "starter";
   const isYearly = billing === "yearly";
-  const baseMonthly = plan.launchPrice ?? 0;
-  const baseDisplay = isProPlan && isYearly ? Math.round(baseMonthly * 0.8) : baseMonthly;
-  const origMonthly = plan.originalPrice ?? 0;
-  const origDisplay = isProPlan && origMonthly ? Math.round(origMonthly * 0.8) : origMonthly;
-  const addOnMonthly = ADDON.monthlyPrice;
-  const addOnDisplay = isYearly ? Math.round(addOnMonthly * 0.8) : addOnMonthly;
-  const showAddOnToggle = isProPlan;
-  const addOnActive = showAddOnToggle ? addOn : false;
+  const baseDisplay = getDisplayAmount(plan.launchPrice, billing);
+  const origDisplay = getDisplayAmount(plan.originalPrice, billing);
+  const addOnDisplay = getDisplayAmount(ADDON.monthlyPrice, billing);
+  const addOnActive = addOn;
   const totalDisplay = baseDisplay + (addOnActive ? addOnDisplay : 0);
+  const cadenceLabel = isYearly ? "/mo, billed yearly" : "/month";
 
   return (
     <div className={`relative rounded-[30px] border p-7 shadow-[0_24px_80px_rgba(15,23,42,0.38)] backdrop-blur-xl ${plan.featured ? "border-amber-300/30 bg-gradient-to-b from-amber-300/12 via-cyan-500/10 to-white/[0.03]" : "border-white/8 bg-white/[0.03]"}`}>
@@ -222,54 +196,50 @@ function PricingCard({ plan, billing, addOn, onAddOnChange, onCheckout, onStartA
       ) : null}
       <p className={`text-[11px] font-black uppercase tracking-[0.24em] ${plan.featured ? "text-amber-200" : "text-slate-500"}`}>{plan.name}</p>
 
+      <div className="mt-5 inline-flex rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[10px] font-black tracking-[0.16em] text-emerald-200">
+        {LAUNCH_PRICING.badge}
+      </div>
+
       <div className="mt-5">
-        {isAnalysisPass ? (
-          <div className="flex items-end gap-1">
-            <p className="text-4xl font-black tracking-[-0.05em] text-white">${baseDisplay}</p>
-            <p className="pb-1 text-sm font-semibold text-slate-500">one-time</p>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-end gap-2">
-              <p className="text-4xl font-black tracking-[-0.05em] text-white">
-                ${addOnActive ? totalDisplay : baseDisplay}
-              </p>
-              <p className="pb-1 text-sm font-semibold text-slate-500">
-                {isStrategyAddon ? "/month" : isYearly ? "/mo, billed yearly" : "/month"}
-              </p>
-            </div>
-            {origDisplay > 0 && isProPlan && (
-              <p className="mt-1 text-sm text-slate-500">
-                <span className="line-through">${origDisplay}/mo</span>
-                <span className="ml-2 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black text-emerald-300">Launch price</span>
-              </p>
-            )}
-            {addOnActive && showAddOnToggle && (
-              <p className="mt-1 text-[11px] text-slate-500">${baseDisplay} base + ${addOnDisplay} add-on</p>
-            )}
-          </>
+        <div className="flex items-end gap-2">
+          <p className="text-4xl font-black tracking-[-0.05em] text-white">${addOnActive ? totalDisplay : baseDisplay}</p>
+          <p className="pb-1 text-sm font-semibold text-slate-500">{cadenceLabel}</p>
+        </div>
+        {origDisplay > 0 && (
+          <p className="mt-1 text-sm text-slate-400">
+            <span className="line-through">${origDisplay}</span>
+            <span className="mx-2 text-emerald-300">→</span>
+            <span className="font-bold text-emerald-200">${baseDisplay}</span>
+          </p>
+        )}
+        {addOnActive && (
+          <p className="mt-1 text-[11px] text-slate-500">${baseDisplay} plan + ${addOnDisplay} recovery add-on</p>
         )}
       </div>
 
-      {showAddOnToggle && (
-        <div className="mt-5 rounded-[22px] border border-amber-300/20 bg-amber-300/[0.08] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-200">&#9733; Optional add-on</p>
-              <p className="mt-1 text-sm font-bold text-white">7-Day Recovery Plan</p>
-              <p className="mt-0.5 text-[11px] text-slate-400">+${addOnDisplay}/month</p>
-            </div>
-            <button
-              onClick={() => onAddOnChange(!addOn)}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${addOn ? "bg-amber-400" : "bg-slate-700"}`}
-              role="switch"
-              aria-checked={addOn}
-            >
-              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${addOn ? "translate-x-5" : "translate-x-0.5"}`} />
-            </button>
+      <div className="mt-4 rounded-[22px] border border-white/8 bg-slate-950/45 p-4">
+        <p className="text-xs font-semibold text-slate-300">{LAUNCH_PRICING.availability}</p>
+        <p className="mt-1 text-sm font-bold text-amber-200">{LAUNCH_PRICING.lockInCopy}</p>
+        <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-rose-200/85">{getLaunchCountdownLabel()}</p>
+      </div>
+
+      <div className="mt-5 rounded-[22px] border border-amber-300/20 bg-amber-300/[0.08] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-200">&#9733; Optional add-on</p>
+            <p className="mt-1 text-sm font-bold text-white">{ADDON.name}</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">+${addOnDisplay}{cadenceLabel === "/month" ? "/month" : "/mo, billed yearly"}</p>
           </div>
+          <button
+            onClick={() => onAddOnChange(!addOn)}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${addOn ? "bg-amber-400" : "bg-slate-700"}`}
+            role="switch"
+            aria-checked={addOn}
+          >
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${addOn ? "translate-x-5" : "translate-x-0.5"}`} />
+          </button>
         </div>
-      )}
+      </div>
 
       <ul className="mt-6 space-y-3">
         {plan.features.map((feature) => (
@@ -281,7 +251,7 @@ function PricingCard({ plan, billing, addOn, onAddOnChange, onCheckout, onStartA
       </ul>
 
       <button
-        onClick={() => isAnalysisPass ? onStartAnalysis() : onCheckout(plan)}
+        onClick={() => (isStarterPlan ? onStartAnalysis() : onCheckout(plan))}
         className={`mt-8 w-full rounded-[20px] px-5 py-4 text-sm font-black transition duration-300 ${plan.featured ? "bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 text-slate-950 shadow-[0_20px_45px_rgba(245,158,11,0.28)] hover:shadow-[0_24px_60px_rgba(245,158,11,0.38)]" : "border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"}`}
       >
         {plan.cta}
@@ -306,62 +276,72 @@ function RecoveryDay({ item, locked = false }) {
 }
 
 function CheckoutModal({ plan, billing, addOn, onClose, onConfirm }) {
-        const isYearly = billing === "yearly";
-        const baseMonthly = plan.launchPrice ?? 0;
-        const baseDisplay = isYearly ? Math.round(baseMonthly * 0.8) : baseMonthly;
-        const addOnMonthly = ADDON.monthlyPrice;
-        const addOnDisplay = isYearly ? Math.round(addOnMonthly * 0.8) : addOnMonthly;
-        const showAddOn = addOn && plan.recoveryPlan === "optional";
-  const total = baseDisplay + (showAddOn ? addOnDisplay : 0);
+  const isYearly = billing === "yearly";
+  const baseDisplay = getDisplayAmount(plan.launchPrice, billing);
+  const origDisplay = getDisplayAmount(plan.originalPrice, billing);
+  const addOnDisplay = getDisplayAmount(ADDON.monthlyPrice, billing);
+  const total = baseDisplay + (addOn ? addOnDisplay : 0);
 
-        return (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#07111f]/85 p-6 backdrop-blur-xl">
-            <div className="w-full max-w-md rounded-[32px] border border-white/10 bg-[#0c1828] p-8 shadow-[0_40px_120px_rgba(2,8,23,0.65)]">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-300/80">Order summary</p>
-                <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 transition hover:text-white">&#x2715;</button>
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#07111f]/85 p-6 backdrop-blur-xl">
+      <div className="w-full max-w-md rounded-[32px] border border-white/10 bg-[#0c1828] p-8 shadow-[0_40px_120px_rgba(2,8,23,0.65)]">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-300/80">Order summary</p>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 transition hover:text-white">&#x2715;</button>
+        </div>
+        <h3 className="mt-3 text-2xl font-black tracking-[-0.04em] text-white">Lock in launch pricing</h3>
+        <div className="mt-4 inline-flex rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[10px] font-black tracking-[0.16em] text-emerald-200">
+          {LAUNCH_PRICING.badge}
+        </div>
+
+        <div className="mt-6 space-y-3">
+          <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-5 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-bold text-white">{plan.name} Plan</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">{isYearly ? "Billed yearly" : "Billed monthly"}</p>
               </div>
-              <h3 className="mt-3 text-2xl font-black tracking-[-0.04em] text-white">Unlock your growth plan</h3>
-
-              <div className="mt-6 space-y-3">
-                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-5 py-4">
-                  <div>
-                    <p className="font-bold text-white">{plan.name} Plan</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">{isYearly ? "Billed yearly" : "Billed monthly"}</p>
-                  </div>
-                  <p className="text-lg font-black text-white">${baseDisplay}<span className="text-sm font-semibold text-slate-500">/mo</span></p>
-                </div>
-
-                {showAddOn && (
-                  <div className="flex items-center justify-between rounded-2xl border border-amber-300/20 bg-amber-300/[0.08] px-5 py-4">
-                    <div>
-                      <p className="font-bold text-white">7-Day Recovery Plan</p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">Add-on</p>
-                    </div>
-                    <p className="text-lg font-black text-white">${addOnDisplay}<span className="text-sm font-semibold text-slate-500">/mo</span></p>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between rounded-2xl border border-white/[0.15] bg-white/[0.06] px-5 py-4">
-                  <p className="font-bold text-white">Total</p>
-                  <div className="text-right">
-                    <p className="text-2xl font-black tracking-[-0.04em] text-white">${total}<span className="text-sm font-semibold text-slate-500">/mo</span></p>
-                    {isYearly && <p className="mt-0.5 text-[10px] text-emerald-300">Billed ${total * 12}/year</p>}
-                  </div>
-                </div>
+              <div className="text-right">
+                <p className="text-lg font-black text-white">${baseDisplay}<span className="text-sm font-semibold text-slate-500">/mo</span></p>
+                <p className="mt-0.5 text-[11px] text-slate-400"><span className="line-through">${origDisplay}</span> → ${baseDisplay}</p>
               </div>
-
-              <button
-                onClick={onConfirm}
-                className="mt-6 w-full rounded-[20px] bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 px-5 py-4 text-sm font-black text-slate-950 shadow-[0_20px_45px_rgba(245,158,11,0.28)] transition hover:shadow-[0_24px_60px_rgba(245,158,11,0.38)]"
-              >
-                Start recovering traffic &#8594;
-              </button>
-              <p className="mt-3 text-center text-[11px] text-slate-500">Early pricing &#183; Prices will increase after launch.</p>
-              <button onClick={onClose} className="mt-2 w-full text-center text-xs text-slate-500 transition hover:text-slate-300">Cancel</button>
             </div>
           </div>
-        );
+
+          {addOn && (
+            <div className="flex items-center justify-between rounded-2xl border border-amber-300/20 bg-amber-300/[0.08] px-5 py-4">
+              <div>
+                <p className="font-bold text-white">{ADDON.name}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">Add-on</p>
+              </div>
+              <p className="text-lg font-black text-white">${addOnDisplay}<span className="text-sm font-semibold text-slate-500">/mo</span></p>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-white/[0.15] bg-white/[0.06] px-5 py-4">
+            <div className="flex items-center justify-between">
+              <p className="font-bold text-white">Total</p>
+              <div className="text-right">
+                <p className="text-2xl font-black tracking-[-0.04em] text-white">${total}<span className="text-sm font-semibold text-slate-500">/mo</span></p>
+                {isYearly && <p className="mt-0.5 text-[10px] text-emerald-300">Billed ${total * 12}/year</p>}
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-400">{LAUNCH_PRICING.availability}</p>
+            <p className="mt-1 text-sm font-bold text-amber-200">{LAUNCH_PRICING.lockInCopy}</p>
+            <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-rose-200/85">{getLaunchCountdownLabel()}</p>
+          </div>
+        </div>
+
+        <button
+          onClick={onConfirm}
+          className="mt-6 w-full rounded-[20px] bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 px-5 py-4 text-sm font-black text-slate-950 shadow-[0_20px_45px_rgba(245,158,11,0.28)] transition hover:shadow-[0_24px_60px_rgba(245,158,11,0.38)]"
+        >
+          Lock launch pricing &#8594;
+        </button>
+        <button onClick={onClose} className="mt-2 w-full text-center text-xs text-slate-500 transition hover:text-slate-300">Cancel</button>
+      </div>
+    </div>
+  );
 }
 
 function EntryPaymentModal({ brandName, competitors, onClose, onConfirm, showTestModeLabel }) {
@@ -378,6 +358,10 @@ function EntryPaymentModal({ brandName, competitors, onClose, onConfirm, showTes
         ) : null}
         <p className="mt-3 text-sm leading-7 text-slate-400">This analysis uses real AI models across multiple prompts and regions.</p>
 
+        <div className="mt-4 inline-flex rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[10px] font-black tracking-[0.16em] text-emerald-200">
+          {LAUNCH_PRICING.badge}
+        </div>
+
         <div className="mt-6 space-y-3 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-400">Brand / Domain</span>
@@ -393,16 +377,22 @@ function EntryPaymentModal({ brandName, competitors, onClose, onConfirm, showTes
           </div>
           <div className="h-px bg-white/10" />
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-300">Total</span>
-            <span className="text-2xl font-black tracking-[-0.04em] text-white">$9</span>
+            <span className="text-sm font-semibold text-slate-300">Starter launch price</span>
+            <div className="text-right">
+              <p className="text-2xl font-black tracking-[-0.04em] text-white">$59<span className="text-sm font-semibold text-slate-500">/mo</span></p>
+              <p className="text-[11px] text-slate-400"><span className="line-through">$99</span> → $59</p>
+            </div>
           </div>
+          <p className="text-xs text-slate-400">{LAUNCH_PRICING.availability}</p>
+          <p className="text-sm font-bold text-amber-200">{LAUNCH_PRICING.lockInCopy}</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-rose-200/85">{getLaunchCountdownLabel()}</p>
         </div>
 
         <button
           onClick={onConfirm}
           className="mt-6 w-full rounded-[18px] bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 px-5 py-4 text-sm font-black text-slate-950 shadow-[0_20px_45px_rgba(34,211,238,0.28)] transition hover:shadow-[0_24px_60px_rgba(34,211,238,0.38)]"
         >
-          Pay $9 &#8594; Continue
+          Lock Starter at $59/mo &#8594; Continue
         </button>
         <button onClick={onClose} className="mt-3 w-full text-center text-xs text-slate-500 transition hover:text-slate-300">Cancel</button>
       </div>
@@ -410,7 +400,7 @@ function EntryPaymentModal({ brandName, competitors, onClose, onConfirm, showTes
   );
 }
 
-export default function LandingPage({ onAnalyze, onSeeDemo }) {
+export default function LandingPage({ onAnalyze, onSeeDemo, onViewDemo }) {
   const [brandName, setBrandName] = useState("");
   const [competitors, setCompetitors] = useState(["", "", ""]);
   const [billing, setBilling] = useState("monthly");
@@ -436,7 +426,7 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
   };
 
   const unlockPro = () => {
-    setCheckoutPlan(PRICING.find((plan) => plan.name === "PRO") || null);
+    setCheckoutPlan(PRICING.find((plan) => plan.id === "pro") || null);
   };
 
   const confirmEntryPayment = () => {
@@ -476,7 +466,7 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
     }
     const cleanCompetitors = getCleanCompetitors();
 
-    if (checkoutPlan.name === "ANALYSIS PASS") {
+    if (checkoutPlan.id === "starter") {
       setCheckoutPlan(null);
       setEntryPaymentOpen(true);
       return;
@@ -486,8 +476,8 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
       brandName: brandName.trim(),
       competitors: cleanCompetitors,
       payEntry: true,
-      upgradePro: checkoutPlan.name === "PRO" || checkoutPlan.name === "AI STRATEGY ADD-ON",
-      unlockStrategy: checkoutPlan.name === "AI STRATEGY ADD-ON" || addOn,
+      upgradePro: checkoutPlan.id === "pro" || checkoutPlan.id === "enterprise",
+      unlockStrategy: addOn,
     };
 
     if (isFakePaymentMode()) {
@@ -536,8 +526,11 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
             <a href="#pricing" className="text-sm text-slate-400 transition hover:text-white">Pricing</a>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={onSeeDemo} className="hidden rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.06] lg:inline-flex">
-              Unlock growth insights
+            <button
+              onClick={onViewDemo}
+              className="hidden rounded-full border border-violet-400/25 bg-violet-400/10 px-4 py-2 text-sm font-semibold text-violet-200 transition hover:bg-violet-400/15 lg:inline-flex"
+            >
+              ▶ View Demo Report
             </button>
             <button onClick={unlockPro} className="rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 px-5 py-2.5 text-sm font-black text-slate-950 shadow-[0_16px_45px_rgba(34,211,238,0.28)] transition hover:scale-[1.01]">
               Recover your visibility
@@ -574,11 +567,15 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
                 />
               </div>
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <button onClick={unlockPro} className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08]">
-                  Stop losing traffic
+                <button
+                  onClick={onViewDemo}
+                  className="flex items-center gap-2 rounded-full border border-violet-400/30 bg-violet-400/12 px-6 py-3 text-sm font-black text-violet-200 shadow-[0_8px_30px_rgba(139,92,246,0.18)] transition duration-300 hover:bg-violet-400/20 hover:shadow-[0_12px_40px_rgba(139,92,246,0.25)]"
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-400/20 text-[10px]">▶</span>
+                  View Demo Report
                 </button>
-                <button onClick={onSeeDemo} className="rounded-full px-5 py-3 text-sm font-bold text-slate-300 transition hover:text-white">
-                  Unlock growth insights
+                <button onClick={unlockPro} className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08]">
+                  See pricing
                 </button>
               </div>
             </div>
@@ -635,8 +632,8 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-200">7-Day Recovery Plan</p>
-                      <p className="mt-2 text-lg font-bold text-white">Most valuable feature inside Pro</p>
-                      <p className="mt-2 text-sm leading-7 text-slate-400">See the exact fixes, content moves, and prompt-level actions needed to recover visibility within seven days.</p>
+                      <p className="mt-2 text-lg font-bold text-white">Optional $19 recovery add-on</p>
+                      <p className="mt-2 text-sm leading-7 text-slate-400">Add the 7-Day Recovery Plan to any launch plan to get exact fixes, content moves, and prompt-level actions for the next week.</p>
                     </div>
                     <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-200">Upgrade driver</span>
                   </div>
@@ -760,7 +757,7 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
                 We don’t just show the problem. We tell you exactly what to do.
               </p>
               <p className="mt-4 max-w-xl text-base leading-7 text-slate-400">
-                Pro turns raw visibility data into a day-by-day execution sequence so your team knows what to ship first, what to measure, and how to recover AI demand fast.
+                The optional $19 Recovery Plan turns visibility data into a day-by-day execution sequence so your team knows what to ship first, what to measure, and how to recover AI demand fast.
               </p>
               <button onClick={unlockPro} className="mt-8 rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 px-6 py-3.5 text-sm font-black text-slate-950 shadow-[0_20px_50px_rgba(245,158,11,0.28)] transition hover:scale-[1.01]">
                 Unlock your recovery plan
@@ -777,7 +774,7 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
                   <div className="max-w-md rounded-[30px] border border-amber-300/20 bg-[#08111f]/88 p-6 text-center shadow-[0_20px_60px_rgba(15,23,42,0.55)] backdrop-blur-2xl">
                     <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">Most valuable feature</span>
                     <p className="mt-4 text-2xl font-black tracking-[-0.04em] text-white">Unlock your recovery plan</p>
-                    <p className="mt-3 text-sm leading-7 text-slate-400">Day 1 is visible. Days 2-7 are reserved for Pro, where the full growth sequence is unlocked.</p>
+                    <p className="mt-3 text-sm leading-7 text-slate-400">Day 1 is visible. Days 2-7 unlock when you add the $19 Recovery Plan to your launch package.</p>
                     <button onClick={unlockPro} className="mt-5 rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:scale-[1.01]">
                       Unlock your recovery plan
                     </button>
@@ -788,18 +785,82 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
           </div>
         </section>
 
-        <section id="pricing" className="px-6 py-24 lg:px-10">
+        {/* ── DEMO REPORT CTA SECTION ── */}
+        <section className="px-6 py-20 lg:px-10">
+                    <div className="mx-auto max-w-5xl">
+                      <div className="relative overflow-hidden rounded-[40px] border border-violet-400/20 bg-gradient-to-br from-violet-950/60 via-[#0a0f1e] to-slate-950/80 p-8 shadow-[0_40px_120px_rgba(139,92,246,0.14)] backdrop-blur-2xl md:p-12">
+                        <div className="pointer-events-none absolute inset-0">
+                          <div className="absolute -top-20 -right-20 h-72 w-72 rounded-full bg-violet-500/15 blur-3xl" />
+                          <div className="absolute -bottom-10 -left-10 h-56 w-56 rounded-full bg-blue-500/12 blur-3xl" />
+                        </div>
+                        <div className="relative flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="max-w-xl">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-violet-400/25 bg-violet-400/12 px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-violet-200">
+                              <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />
+                              Free interactive demo
+                            </div>
+                            <h2 className="mt-6 text-3xl font-black tracking-[-0.04em] text-white md:text-4xl">
+                              See a real report — no brand required
+                            </h2>
+                            <p className="mt-4 text-base leading-7 text-slate-400">
+                              We built a full sample report for a fictional AI brand called <span className="font-bold text-violet-200">Lumora AI</span>.{" "}
+                              Explore every dashboard section — visibility score, competitor analysis, gap analysis, country breakdown, 7-day recovery plan — exactly as you will see it for your brand.
+                            </p>
+                            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                              {[
+                                { icon: "🎯", label: "Visibility 54/100" },
+                                { icon: "⚔️", label: "3 competitors" },
+                                { icon: "🌍", label: "US / UK / Germany" },
+                                { icon: "🗓️", label: "7-day plan" },
+                              ].map((item) => (
+                                <div key={item.label} className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3">
+                                  <span className="text-base">{item.icon}</span>
+                                  <span className="text-xs font-semibold text-slate-300">{item.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-center gap-4">
+                            <button
+                              onClick={onViewDemo}
+                              className="group flex items-center gap-3 rounded-[26px] bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 px-8 py-5 text-base font-black text-white shadow-[0_24px_60px_rgba(139,92,246,0.35)] transition duration-300 hover:scale-[1.02] hover:shadow-[0_28px_80px_rgba(139,92,246,0.45)]"
+                            >
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-sm transition group-hover:bg-white/30">▶</span>
+                              View Demo Report
+                            </button>
+                            <p className="text-center text-xs text-slate-500">
+                              Instant access &middot; No signup &middot; No payment
+                            </p>
+                            <div className="flex flex-wrap justify-center gap-2">
+                              {["Full charts", "Gap analysis", "Recovery plan", "AI insights"].map((tag) => (
+                                <span key={tag} className="rounded-full border border-violet-400/20 bg-violet-400/8 px-3 py-1 text-[10px] font-bold text-violet-300">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                </section>
+
+                <section id="pricing" className="px-6 py-24 lg:px-10">
           <div className="mx-auto max-w-7xl">
             <SectionIntro
               eyebrow="Pricing"
-              title="Upgrade when the visibility gap becomes too expensive"
-              body="Start with a one-time analysis pass, then move to Pro for continuous intelligence. AI Strategy and the 7-Day Recovery Plan are unlocked separately as an add-on."
+              title="Buy during launch before pricing resets upward"
+              body="Choose Starter, Pro, or Enterprise during the launch window. The 7-Day Recovery Plan stays a +$19 add-on for teams that want an execution layer on top."
             />
             <div className="mt-8 flex flex-col items-center gap-3">
               <BillingToggle billing={billing} onChange={setBilling} />
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-300/80">
-                &#9889; Early pricing ends soon &#8212; prices will increase after launch
-              </p>
+              <div className="inline-flex rounded-full border border-emerald-400/25 bg-emerald-400/10 px-4 py-2 text-[11px] font-black tracking-[0.2em] text-emerald-200">
+                {LAUNCH_PRICING.badge}
+              </div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-300/80">{LAUNCH_PRICING.availability}</p>
+              <p className="text-sm font-bold text-white">{LAUNCH_PRICING.lockInCopy}</p>
+              <div className="rounded-full border border-rose-300/20 bg-rose-400/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-rose-100">
+                {getLaunchCountdownLabel()}
+              </div>
             </div>
             <div className="mt-10 grid gap-5 lg:grid-cols-3">
               {PRICING.map((plan) => (
@@ -874,8 +935,11 @@ export default function LandingPage({ onAnalyze, onSeeDemo }) {
               <button onClick={unlockPro} className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-5 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-300/15">
                 Recover your visibility
               </button>
-              <button onClick={onSeeDemo} className="rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-black text-slate-300 transition hover:bg-white/[0.06]">
-                Stop losing traffic
+              <button
+                onClick={onViewDemo}
+                className="flex items-center gap-2 rounded-full border border-violet-400/25 bg-violet-400/10 px-5 py-3 text-sm font-black text-violet-200 transition hover:bg-violet-400/18"
+              >
+                ▶ View Demo Report
               </button>
             </div>
           </div>

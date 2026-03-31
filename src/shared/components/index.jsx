@@ -212,6 +212,8 @@ export function PaywallSection({ locked, title, description, cta = "Recover Your
           </div>
           <p className="text-sm font-bold text-white">{title || "Unlock premium insights"}</p>
           <p className="mt-1 text-xs text-slate-300 font-medium">{description || "Get full visibility intelligence and execution guidance."}</p>
+          <p className="mt-2 text-xs font-bold text-amber-200">Your competitors may already be gaining visibility while you're not.</p>
+          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Takes 30 seconds · No setup required · Cancel anytime</p>
           <button onClick={onUnlock} className={`mt-4 rounded-xl bg-gradient-to-r ${ctaColor} px-6 py-2.5 text-xs font-bold text-white shadow-lg hover:shadow-red-500/25 hover:shadow-xl transition-all`}>{cta}</button>
         </div>
       )}
@@ -277,6 +279,9 @@ export function ActionModeToggle({ actionMode, setActionMode }) {
     </div>
   );
 }
+
+export { default as DemoConversionCta } from "./DemoConversionCta";
+export { default as HighConversionPaywall } from "./HighConversionPaywall";
 
 /* ─── Structured Action Card ─── */
 export function ActionCard({ action, index, onApply, locked, onUnlock }) {

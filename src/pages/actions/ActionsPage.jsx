@@ -8,14 +8,14 @@ import {
 } from "../../shared/utils/insightEngine";
 import {
   GlassCard, SectionHeader, KpiCard, PriorityScore, PaywallSection,
-  DecisionSummary, RiskCard, ImpactSimulator,
+  DecisionSummary, RiskCard, ImpactSimulator, DemoConversionCta,
 } from "../../shared/components";
 import StrategyAdvisor from "../../shared/components/StrategyAdvisor";
 import ContentStrategyGenerator from "../../shared/components/ContentStrategyGenerator";
 import ArticleGenerator from "../../shared/components/ArticleGenerator";
 
 export default function ActionsPage() {
-  const { data, loading, hasAnalyzedOnce, isQuickMode, setPremiumModalOpen, appliedActions, toggleAppliedAction, brandName } = useAnalysis();
+  const { data, loading, hasAnalyzedOnce, isQuickMode, setPremiumModalOpen, appliedActions, toggleAppliedAction, brandName, isDemoMode } = useAnalysis();
 
   const priority = useMemo(() => computePriorityScore(data), [data]);
   const vis = useMemo(() => computeVisibilityScore(data), [data]);
@@ -178,6 +178,13 @@ export default function ActionsPage() {
             </div>
           </div>
         )}
+        {isDemoMode && (
+          <DemoConversionCta
+            className="mt-4"
+            title="Want this for your brand?"
+            subtitle="You are viewing a sample report. Your competitors may already be gaining visibility. Enter your brand to unlock your own highest-impact move."
+          />
+        )}
         <div className="mt-4 space-y-3">
           {top3ProjectedActions.map((action, idx) => (
             <div key={`top-action-${idx}`} className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
@@ -230,6 +237,13 @@ export default function ActionsPage() {
             </div>
           ))}
         </div>
+        {isDemoMode && (
+          <DemoConversionCta
+            className="mt-4"
+            title="Want this for your brand?"
+            subtitle="These are Lumora AI's top actions. Your real Top Actions would be generated from your actual query losses, competitors, and visibility gaps."
+          />
+        )}
       </GlassCard>
 
       {/* Quick Wins — 48h */}
