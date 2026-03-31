@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import {
   computeVisibilityScore,
   generateStructuredQuickWins,
+  detectMissingPatterns,
   getTopCompetitor,
 } from "./insightEngine";
 import { generateAllInsights, generateCompetitorInsights } from "./dataEngines";
@@ -32,8 +33,14 @@ export async function generateReportPdfBlob(data) {
   const visibilityScore = computeVisibilityScore(data);
   const quickWins = generateStructuredQuickWins(data).slice(0, 3);
   const insights = generateAllInsights(data).slice(0, 3);
-  const competitorSummary = generateCompetitorInsights(data).slice(0, 2);
+  const competitorSummary = generateCompetitorInsights(data).slice(0, 3);
   const topCompetitor = getTopCompetitor(data);
+  const gapPatterns = detectMissingPatterns(data).slice(0, 3);
+  const biggestGap = gapPatterns[0]?.title || "Low coverage across high-intent AI prompts";
+  const biggestOpportunity = quickWins[0]?.title || "Publish citation-ready comparison and FAQ content";
+  const competitorCount = Array.isArray(data?.topCompetitors) ? data.topCompetitors.length : competitorSummary.length;
+  const strongestCountry = data?.strongestRegion || data?.regionVisibility?.[0]?.region || "N/A";
+  const weakestCountry = data?.weakestRegion || data?.regionVisibility?.[data?.regionVisibility?.length - 1]?.region || "N/A";
 
   const ensureSpace = (required = 12) => {
     if (cursorY + required <= 270) return;
@@ -66,14 +73,14 @@ export async function generateReportPdfBlob(data) {
   };
 
   const addHighlightBox = (content, color = [8, 145, 178]) => {
-    ensureSpace(12);
+    ensureSpace(10);
     doc.setFillColor(color[0], color[1], color[2]);
-    doc.rect(marginLeft, cursorY - 1, pageWidth, 0.5, "F");
+    doc.rect(marginLeft, cursorY - 1, pageWidth, 0.9, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(255, 255, 255);
-    doc.text(content, marginLeft + 4, cursorY + 3.5);
-    cursorY += 6;
+    doc.setFontSize(10.5);
+    doc.setTextColor(31, 41, 55);
+    doc.text(content, marginLeft, cursorY + 4.2);
+    cursorY += 6.8;
   };
 
   // ── Premium Header ──
@@ -81,7 +88,7 @@ export async function generateReportPdfBlob(data) {
   doc.rect(10, 10, 190, 28, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
+  doc.setFontSize(20);
   doc.text("AI Visibility Report", marginLeft, 22);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
@@ -94,7 +101,9 @@ export async function generateReportPdfBlob(data) {
 
   // ── EXECUTIVE SUMMARY (URGENCY) ──
   addSectionTitle("Executive Summary");
-  addHighlightBox(`Visibility Score: ${visibilityScore}/100`, [8, 145, 178]);
+  addHighlightBox(`Visibility Score: ${visibilityScore}/100`, [34, 197, 94]);
+  addParagraph(`Biggest gap: ${biggestGap}`, { fontSize: 10, color: [51, 65, 85], after: 1.5 });
+  addParagraph(`Biggest opportunity: ${biggestOpportunity}`, { fontSize: 10, color: [51, 65, 85], after: 2 });
   addParagraph("You may be losing visibility to competitors right now.", { bold: true, fontSize: 10.5, color: [220, 38, 38], after: 2 });
   if (topCompetitor) {
     addParagraph(`Your top competitor, ${topCompetitor.name}, is capturing traffic that should be going to you.`, { fontSize: 10, color: [51, 65, 85], after: 2 });
@@ -105,8 +114,8 @@ export async function generateReportPdfBlob(data) {
   addSectionTitle("Key Metrics");
   const metricsContent = [
     `Visibility Score: ${visibilityScore}/100`,
-    `Top Competitors: ${competitorSummary.length} blocking your visibility`,
-    `Countries Below 50: ${Math.max(1, Math.floor(data?.countryData?.length || 0 / 3))} need attention`,
+    `Country performance: strongest in ${strongestCountry}, weakest in ${weakestCountry}`,
+    `Top competitors detected: ${competitorCount}`,
   ];
   metricsContent.forEach((metric) => {
     addParagraph(`• ${metric}`, { fontSize: 10, color: [51, 65, 85], after: 1.5 });
@@ -116,22 +125,21 @@ export async function generateReportPdfBlob(data) {
   // ── TOP 3 ACTIONS (ACTIONABLE WITH IMPACT) ──
   addSectionTitle("Top 3 Actions to Recover Visibility");
   quickWins.forEach((action, index) => {
-    ensureSpace(18);
+    ensureSpace(22);
     addHighlightBox(`${index + 1}. ${action.title}`, [8, 145, 178]);
-    addParagraph(action.explanation || "Implement this action to improve your AI visibility.", { fontSize: 9.5, color: [51, 65, 85], after: 1.5 });
-    const expectedTraffic = Math.floor(Math.random() * 800) + 200;
-    const visibilityGain = Math.floor(Math.random() * 15) + 8;
-    addParagraph(`Expected Result: +${visibilityGain}–${visibilityGain + 12} visibility points • +${expectedTraffic} monthly traffic`, { bold: true, fontSize: 10, color: [34, 197, 94], after: 3 });
+    addParagraph(`What: ${action.title}`, { fontSize: 9.5, color: [51, 65, 85], after: 1 });
+    addParagraph(`Why: ${action.explanation || "This closes a high-impact visibility gap across AI recommendation prompts."}`, { fontSize: 9.5, color: [51, 65, 85], after: 1 });
+    addParagraph(`Expected Result: ${action.expectedImpact || "+15-25 visibility points"} • ${action.timeframe || "+1K monthly traffic"}`, { bold: true, fontSize: 9.8, color: [34, 197, 94], after: 3 });
   });
 
   // ── KEY INSIGHTS ──
   addSectionTitle("Critical Insights");
-  insights.forEach((insight, idx) => {
+  insights.forEach((insight) => {
     ensureSpace(15);
     addParagraph(insight.title, { bold: true, fontSize: 11, color: [31, 41, 55], after: 1.5 });
-    addParagraph(`What: ${insight.what}`, { fontSize: 9.5, color: [51, 65, 85], after: 1 });
-    addParagraph(`Why: ${insight.why || "This is blocking your visibility in AI recommendations."}`, { fontSize: 9.5, color: [51, 65, 85], after: 1 });
-    addParagraph(`Action: ${insight.action}`, { fontSize: 9.5, color: [30, 64, 175], after: 2.5 });
+    addParagraph(`WHAT: ${insight.what}`, { fontSize: 9.5, color: [51, 65, 85], after: 1 });
+    addParagraph(`WHY: ${insight.why || "This is reducing your citation probability in AI answers."}`, { fontSize: 9.5, color: [51, 65, 85], after: 1 });
+    addParagraph(`ACTION: ${insight.action}`, { fontSize: 9.5, color: [30, 64, 175], after: 2.5 });
   });
 
   // ── COMPETITOR ANALYSIS ──
@@ -139,17 +147,17 @@ export async function generateReportPdfBlob(data) {
     addSectionTitle("Who's Winning Your Traffic");
     competitorSummary.forEach((competitor, index) => {
       addParagraph(`${index + 1}. ${competitor.name} — ${competitor.frequency}% share of voice`, { bold: true, fontSize: 10.5, color: [15, 23, 42], after: 1 });
-      addParagraph(competitor.advantageReason, { fontSize: 9.5, color: [51, 65, 85], after: 1 });
-      addParagraph(`→ ${competitor.action}`, { fontSize: 9.5, color: [30, 64, 175], after: 2.5 });
+      addParagraph(`Why they win: ${competitor.advantageReason}`, { fontSize: 9.5, color: [51, 65, 85], after: 1 });
+      addParagraph(`Quick action: ${competitor.action}`, { fontSize: 9.5, color: [30, 64, 175], after: 2.5 });
     });
   }
 
   // ── NEXT STEPS ──
   addSectionTitle("Recommended Next Steps");
   const nextSteps = [
-    "Run your full analysis to unlock the complete 7-day recovery plan",
-    "Prioritize the top action that is easiest to implement",
-    "Track your progress and measure visibility improvements",
+    "Start with the highest-impact action from this report today",
+    "Ship one comparison or FAQ asset in the next 48 hours",
+    "Track weekly prompt visibility and iterate fast",
   ];
   nextSteps.forEach((step, idx) => {
     addParagraph(`${idx + 1}. ${step}`, { fontSize: 10, color: [51, 65, 85], after: 2 });
@@ -168,20 +176,20 @@ export async function generateReportPdfBlob(data) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(31, 41, 55);
-  doc.text("Ready to Improve Your AI Visibility?", marginLeft, cursorY);
+  doc.text("Want to improve your AI visibility?", marginLeft, cursorY);
   cursorY += 6;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(51, 65, 85);
-  const ctaLines = doc.splitTextToSize("Get a complete AI visibility analysis with a custom recovery plan tailored to your brand, industry, and competitors.", pageWidth);
+  const ctaLines = doc.splitTextToSize("Run your full analysis and get a personalized AI visibility recovery system built for your brand.", pageWidth);
   doc.text(ctaLines, marginLeft, cursorY);
   cursorY += ctaLines.length * 5 + 4;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(8, 145, 178);
-  doc.text("👉 Visit: https://lumio.ai", marginLeft, cursorY);
+  doc.text("Run your full analysis: https://lumio.ai?source=report", marginLeft, cursorY);
   cursorY += 6;
 
   doc.setFont("helvetica", "normal");
@@ -200,6 +208,116 @@ export async function generateReportPdfBlob(data) {
   }
 
   return doc.output("blob");
+}
+
+export async function generateRecoveryPlanPdfBlob({ brandName, plan }) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const marginLeft = 16;
+  const pageWidth = 178;
+  let cursorY = 18;
+
+  const safeBrand = brandName || "Your brand";
+  const safePlan = Array.isArray(plan) ? plan.slice(0, 7) : [];
+
+  const ensureSpace = (required = 12) => {
+    if (cursorY + required <= 272) return;
+    doc.addPage();
+    cursorY = 18;
+  };
+
+  const addParagraph = (text, options = {}) => {
+    const lines = doc.splitTextToSize(String(text || "-"), pageWidth);
+    const lineHeight = options.lineHeight || 5.2;
+    ensureSpace(lines.length * lineHeight + 3);
+    doc.setFont("helvetica", options.bold ? "bold" : "normal");
+    doc.setFontSize(options.fontSize || 10);
+    doc.setTextColor(...(options.color || [51, 65, 85]));
+    doc.text(lines, marginLeft, cursorY);
+    cursorY += lines.length * lineHeight + (options.after || 2);
+  };
+
+  doc.setFillColor(15, 23, 42);
+  doc.rect(10, 10, 190, 24, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`7-Day AI Visibility Recovery Plan for ${safeBrand}`, marginLeft, 21);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(196, 206, 220);
+  doc.text(`Generated by LUMIO AI • ${new Date().toLocaleDateString()}`, marginLeft, 28);
+  cursorY = 40;
+
+  addParagraph("Checklist format: follow each day in order for fastest visibility recovery.", {
+    bold: true,
+    fontSize: 10,
+    color: [30, 64, 175],
+    after: 4,
+  });
+
+  safePlan.forEach((day, idx) => {
+    ensureSpace(26);
+    doc.setFillColor(8, 145, 178);
+    doc.rect(marginLeft, cursorY - 1, pageWidth, 0.8, "F");
+    addParagraph(`Day ${day.day || idx + 1}: ${day.title || "Recovery task"}`, {
+      bold: true,
+      fontSize: 11,
+      color: [15, 23, 42],
+      after: 1.2,
+    });
+
+    addParagraph(`Task: ${day.task || day.objective || "Define and execute the assigned recovery task."}`, {
+      fontSize: 9.5,
+      color: [51, 65, 85],
+      after: 1,
+    });
+
+    const outputs = Array.isArray(day.output) && day.output.length ? day.output : ["One concrete asset published or updated"];
+    addParagraph("Output:", { bold: true, fontSize: 9.5, color: [15, 23, 42], after: 0.8 });
+    outputs.slice(0, 3).forEach((item) => {
+      addParagraph(`- ${item}`, { fontSize: 9.3, color: [71, 85, 105], after: 0.6 });
+    });
+
+    addParagraph(`Expected Result: ${day.result || day.estimatedImpact || "Improved AI recommendation visibility for target prompts."}`, {
+      fontSize: 9.5,
+      color: [22, 163, 74],
+      after: 1,
+    });
+
+    const time = day.timeRequired ? `Time: ${day.timeRequired}` : null;
+    const difficulty = day.difficulty ? `Difficulty: ${day.difficulty}` : null;
+    if (time || difficulty) {
+      addParagraph([time, difficulty].filter(Boolean).join(" • "), {
+        fontSize: 8.8,
+        color: [100, 116, 139],
+        after: 2.2,
+      });
+    } else {
+      cursorY += 1.2;
+    }
+  });
+
+  const pageCount = doc.internal.pages.length - 1;
+  for (let i = 1; i <= pageCount; i += 1) {
+    doc.setPage(i);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text("Generated by LUMIO AI — Your AI Visibility Intelligence Platform", marginLeft, 286);
+  }
+
+  return doc.output("blob");
+}
+
+export function downloadRecoveryPlanPdf(blob, brandName) {
+  const fileName = `${String(brandName || "brand").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") || "brand"}-7-day-recovery-plan.pdf`;
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  return fileName;
 }
 
 export function downloadReportPdf(blob, brandName) {

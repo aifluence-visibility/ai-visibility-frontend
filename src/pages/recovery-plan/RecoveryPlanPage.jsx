@@ -3,6 +3,7 @@ import { GlassCard, DemoConversionCta } from "../../shared/components";
 import { useAnalysis } from "../../shared/hooks/useAnalysis";
 import { computeVisibilityScore, getShockMetrics } from "../../shared/utils/insightEngine";
 import { generateRecoveryPlan } from "../../shared/utils/dataEngines";
+import { downloadRecoveryPlanPdf, generateRecoveryPlanPdfBlob } from "../../shared/utils/reportDelivery";
 
 const DAY_COLORS = [
   { border: "border-red-500/30", bg: "bg-red-500/10", accent: "text-red-400", glow: "bg-red-500", badge: "bg-red-500/15 text-red-400 border-red-500/30" },
@@ -20,7 +21,19 @@ const IMPACT_COLORS = {
   low: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
 };
 
-function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock, previewUnlockedCount = 1, isDemoPreview = false }) {
+function RecoveryPlanSection({
+  plan,
+  vis,
+  shock,
+  brandName,
+  locked,
+  onUnlock,
+  onDownload,
+  previewUnlockedCount = 2,
+  isDemoPreview = false,
+  downloadMessage = "",
+  downloading = false,
+}) {
   const [expandedDays, setExpandedDays] = useState({ 0: true });
   const toggleDay = (i) => setExpandedDays(prev => ({ ...prev, [i]: !prev[i] }));
 
@@ -107,7 +120,7 @@ function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock, pr
               onClick={onUnlock}
               className="mt-5 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 px-6 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl"
             >
-              {isDemoPreview ? "Unlock my plan" : "Unlock Strategy ($19/month)"}
+              Unlock 7-Day Recovery Plan
             </button>
           </div>
         </GlassCard>
@@ -126,12 +139,21 @@ function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock, pr
               onClick={onUnlock}
               className="rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 px-8 py-3 text-sm font-black text-slate-950 shadow-lg hover:shadow-amber-500/25 hover:shadow-xl transition-all whitespace-nowrap shrink-0"
             >
-                Unlock for $19/month
+              Unlock 7-Day Recovery Plan
             </button>
           ) : (
-            <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-emerald-300">Full plan active</div>
+            <button
+              onClick={onDownload}
+              disabled={downloading}
+              className="rounded-xl border border-emerald-500/35 bg-emerald-500/12 px-5 py-2.5 text-xs font-black uppercase tracking-wide text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {downloading ? "Preparing..." : "Download 7-Day Plan"}
+            </button>
           )}
         </div>
+        {downloadMessage ? (
+          <p className="mt-3 text-center text-xs text-emerald-300">{downloadMessage}</p>
+        ) : null}
       </GlassCard>
     </div>
   );
@@ -244,7 +266,7 @@ function LockedDayPreview({ day, color }) {
                 Day {day.day}
               </span>
               <span className="inline-flex rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
-                Locked preview
+                🔒 Locked — Upgrade to unlock full plan
               </span>
             </div>
             <p className="text-sm font-bold text-white">{day.title}</p>
@@ -258,6 +280,8 @@ function LockedDayPreview({ day, color }) {
 
 export default function RecoveryPlanPage() {
     const { data, hasAnalyzedOnce, loading, isStrategyAddonEnabled, unlockStrategyAddon, isDemoMode, setPremiumModalOpen } = useAnalysis();
+    const [downloadingPlan, setDownloadingPlan] = useState(false);
+    const [downloadMessage, setDownloadMessage] = useState("");
     const vis = useMemo(() => computeVisibilityScore(data), [data]);
     const shock = useMemo(() => getShockMetrics(data), [data]);
     const plan = useMemo(() => generateRecoveryPlan(data), [data]);
@@ -281,8 +305,24 @@ export default function RecoveryPlanPage() {
     const activePlan = isDemoMode && Array.isArray(data?.demoExecutionPlan) && data.demoExecutionPlan.length > 0
       ? data.demoExecutionPlan
       : plan;
-    const previewUnlockedCount = isDemoMode ? 3 : isStrategyAddonEnabled ? activePlan.length : 1;
+    const previewUnlockedCount = isStrategyAddonEnabled ? activePlan.length : 2;
     const isLocked = isDemoMode || !isStrategyAddonEnabled;
+
+    const handleDownloadPlan = async () => {
+      if (isLocked || downloadingPlan || !Array.isArray(activePlan) || activePlan.length === 0) return;
+      setDownloadingPlan(true);
+      setDownloadMessage("");
+      try {
+        const blob = await generateRecoveryPlanPdfBlob({ brandName: data?.brandName, plan: activePlan });
+        downloadRecoveryPlanPdf(blob, data?.brandName);
+        setDownloadMessage("Your 7-day plan has been downloaded");
+      } catch {
+        setDownloadMessage("Could not download the plan. Please try again.");
+      } finally {
+        setDownloadingPlan(false);
+        window.setTimeout(() => setDownloadMessage(""), 3200);
+      }
+    };
 
     return (
       <div className="max-w-4xl space-y-6">
@@ -294,6 +334,9 @@ export default function RecoveryPlanPage() {
           locked={isLocked}
           previewUnlockedCount={previewUnlockedCount}
           isDemoPreview={isDemoMode}
+          onDownload={handleDownloadPlan}
+          downloadMessage={downloadMessage}
+          downloading={downloadingPlan}
           onUnlock={isDemoMode ? () => setPremiumModalOpen(true) : unlockStrategyAddon}
         />
         {isDemoMode && (
