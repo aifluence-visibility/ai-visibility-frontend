@@ -35,7 +35,7 @@ export function SectionHeader({ icon, title, subtitle, badge, badgeColor = "text
 const gaugeColor = (s) => (s <= 30 ? "#ef4444" : s <= 60 ? "#eab308" : "#22c55e");
 const gaugeLabel = (s) => (s <= 30 ? "Critical" : s <= 60 ? "Needs Work" : "Healthy");
 
-export function ScoreGauge({ score, size = 220, label }) {
+export function ScoreGauge({ score, size = 220, label, showCenterBadge = true }) {
   const color = gaugeColor(score);
   const text = label || gaugeLabel(score);
   return (
@@ -50,7 +50,11 @@ export function ScoreGauge({ score, size = 220, label }) {
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-5xl font-black tabular-nums" style={{ color }}>{score}</span>
           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">out of 100</span>
-          <span className="mt-1 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color, background: `${color}18`, border: `1px solid ${color}40` }}>{text}</span>
+          {showCenterBadge && (
+            <span className="mt-1 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color, background: `${color}18`, border: `1px solid ${color}40` }}>
+              {text}
+            </span>
+          )}
         </div>
       </div>
     </div>

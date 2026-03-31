@@ -299,10 +299,24 @@ export default function DashboardPage() {
             <GlassCard className="p-6" glow="bg-indigo-500">
               <SectionHeader icon="🎯" title="AI Visibility Score" subtitle="Overall recommendation presence across AI systems" />
               <div className="mt-4 flex flex-col items-center">
-                <ScoreGauge score={vis} />
-                <p className={`mt-2 text-xs font-black tracking-[0.22em] ${band.tone}`}>{band.label}</p>
+                <div className="flex min-h-[214px] w-full items-center justify-center">
+                  <ScoreGauge score={vis} size={206} showCenterBadge={false} />
+                </div>
+                <div className="mt-3 flex flex-col items-center gap-1.5">
+                  <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-[950] uppercase tracking-[0.24em] backdrop-blur-sm shadow-[0_0_16px_rgba(148,163,184,0.12)] ${
+                    band.label === "HEALTHY"
+                      ? "border-emerald-400/30 bg-emerald-400/12 text-emerald-200"
+                      : band.label === "NEEDS WORK"
+                      ? "border-amber-400/30 bg-amber-400/12 text-amber-200"
+                      : "border-red-400/30 bg-red-400/12 text-red-200"
+                  }`}
+                  >
+                    {band.label}
+                  </span>
+                  <p className="text-[11px] text-slate-500">Current visibility health across tracked AI systems</p>
+                </div>
               </div>
-              <div className="mt-4 grid grid-cols-3 gap-3">
+              <div className="mt-6 grid grid-cols-3 gap-3">
                 {(data.regionVisibility || []).map((region) => (
                   <div key={region.region} className="rounded-xl border border-slate-700/40 bg-slate-900/40 p-3 text-center">
                     <p className="text-xs font-black text-white">{region.score}</p>
