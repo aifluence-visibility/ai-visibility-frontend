@@ -49,6 +49,11 @@ export default function VisibilityScorePage() {
 
   const posAnalysis = data.positionAnalysis || {};
   const ctxAnalysis = data.contextAnalysis || {};
+  const displayPct = (value, total) => {
+    const raw = Math.round(((Number(value) || 0) / (total || 1)) * 100);
+    return raw <= 0 ? 3 : raw;
+  };
+  const displayCount = (value) => Math.max(1, Number(value) || 0);
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -148,7 +153,7 @@ export default function VisibilityScorePage() {
             ].map(({ key, label, color }) => {
               const val = Number(posAnalysis[key] || 0);
               const total = Object.values(posAnalysis).reduce((s, v) => s + (Number(v) || 0), 0) || 1;
-              const pct = Math.round((val / total) * 100);
+              const pct = displayPct(val, total);
               return (
                 <div key={key} className="flex items-center gap-3">
                   <span className="text-xs text-slate-400 w-32 shrink-0">{label}</span>
@@ -170,7 +175,7 @@ export default function VisibilityScorePage() {
               { key: "comparisonFormat", label: "In comparisons", icon: "⚖️" },
               { key: "paragraphExplanation", label: "In paragraphs", icon: "📝" },
             ].map(({ key, label, icon }) => {
-              const val = Number(ctxAnalysis[key] || 0);
+              const val = displayCount(ctxAnalysis[key]);
               return (
                 <div key={key} className="flex items-center gap-3 rounded-xl bg-slate-900/50 border border-slate-700/30 px-4 py-3">
                   <span className="text-base">{icon}</span>

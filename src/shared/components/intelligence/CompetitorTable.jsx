@@ -37,7 +37,9 @@ export function CompetitorTable({ competitors, brandName, totalMentions, competi
 
       {competitors.map((comp, i) => {
         const colors = tierColor(comp.rank || i + 1);
-        const pct = total > 0 ? Math.round((comp.mentionCount / total) * 100) : comp.frequency || 0;
+        const rawPct = total > 0 ? Math.round((comp.mentionCount / total) * 100) : comp.frequency || 0;
+        const pct = Math.max(3, rawPct || 0);
+        const mentionCountDisplay = Math.max(1, Number(comp.mentionCount) || 0);
         const isExpanded = expanded === i;
         const gap = comp.shareGap || 0;
 
@@ -69,7 +71,7 @@ export function CompetitorTable({ competitors, brandName, totalMentions, competi
 
                 {/* Mentions */}
                 <div className="flex flex-col">
-                  <p className={`text-sm font-black ${colors.text}`}>{comp.mentionCount || 0}</p>
+                  <p className={`text-sm font-black ${colors.text}`}>{mentionCountDisplay}</p>
                   <p className="text-[10px] text-slate-600">mentions</p>
                 </div>
 

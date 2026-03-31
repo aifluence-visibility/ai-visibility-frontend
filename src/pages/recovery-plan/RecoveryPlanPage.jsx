@@ -29,6 +29,7 @@ function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) 
   const totalTrafficGain = plan.reduce((sum, d) => sum + (d.trafficGain || 0), 0);
   const totalRevenueRecovery = Math.round(shock.estimatedMonthlyLoss * 0.45);
   const totalActions = plan.reduce((sum, d) => sum + d.actions.length, 0);
+  const regionFocus = ["US", "UK", "Germany"];
 
   return (
     <div className="space-y-4">
@@ -39,7 +40,7 @@ function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) 
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-200">Most Valuable</span>
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300">Pro feature</span>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300">Full AI Recovery System</span>
             </div>
             <h3 className="text-base font-black text-white">7-Day AI Visibility Recovery Plan</h3>
             <p className="text-xs text-slate-400 mt-0.5">Personalized execution plan based on {brandName}'s analysis</p>
@@ -62,6 +63,10 @@ function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) 
             <p className="text-xl font-black text-amber-400">{totalActions}</p>
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1">Actions in 7 days</p>
           </div>
+        </div>
+        <div className="mt-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">Global + Country Intelligence Included</p>
+          <p className="mt-1 text-xs text-slate-300">One system covers global strategy and country execution for {regionFocus.join(" / ")} with no separate country add-ons.</p>
         </div>
       </GlassCard>
 
@@ -89,9 +94,9 @@ function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) 
       {locked ? (
         <GlassCard className="p-6 border border-amber-400/30" glow="bg-amber-500">
           <div className="text-center">
-            <div className="mx-auto mb-3 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">Strategy Add-on</div>
+            <div className="mx-auto mb-3 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">Full AI Recovery System Add-on</div>
             <p className="text-lg font-black text-white">Your recovery plan is ready</p>
-            <p className="mt-2 text-sm text-slate-400">Unlock detailed execution for Days 2–7 and turn visibility gaps into weekly wins.</p>
+            <p className="mt-2 text-sm text-slate-400">Unlock full Task/Output/Result execution for Days 2–7 plus global and US/UK/Germany country guidance.</p>
             <button
               onClick={onUnlock}
               className="mt-5 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 px-6 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl"
@@ -108,7 +113,7 @@ function RecoveryPlanSection({ plan, vis, shock, brandName, locked, onUnlock }) 
           <div className="text-center md:text-left">
             <p className="text-sm font-bold text-white">{locked ? "Your recovery plan is ready. Unlock to recover your traffic." : "Your full recovery plan is unlocked."}</p>
             <p className="text-xs text-slate-400 mt-0.5">{locked ? "The premium 7-Day Recovery Plan is the fastest path to reclaim lost AI demand." : "Use the full 7-day sequence to execute, track progress, and recover visibility."}</p>
-            <p className={`text-[11px] font-medium mt-1 ${locked ? "text-amber-200/90" : "text-emerald-300/90"}`}>{locked ? "Add the 7-Day Recovery Plan for just $19/month." : "Keep moving day by day until the visibility gap closes."}</p>
+            <p className={`text-[11px] font-medium mt-1 ${locked ? "text-amber-200/90" : "text-emerald-300/90"}`}>{locked ? "$9 gives analysis only. Unlock $19 Recovery System for exact execution." : "Keep moving day by day until the visibility gap closes."}</p>
           </div>
           {locked ? (
             <button
@@ -171,6 +176,22 @@ function DayCard({ day, color, expanded, onToggle }) {
           <div className={`mt-4 mb-3 flex items-center gap-2 rounded-lg ${color.bg} border ${color.border} px-3 py-2`}>
             <span className="text-xs">📈</span>
             <p className={`text-[11px] font-semibold ${color.accent}`}>Estimated impact: {day.estimatedImpact}</p>
+          </div>
+          <div className="mb-3 rounded-lg border border-slate-700/30 bg-slate-900/50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Task</p>
+            <p className="mt-1 text-sm text-slate-200">{day.task || day.objective}</p>
+          </div>
+          <div className="mb-3 rounded-lg border border-slate-700/30 bg-slate-900/50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Output</p>
+            <div className="mt-1 space-y-1">
+              {(day.output || []).map((item, idx) => (
+                <p key={`${day.day}-output-${idx}`} className="text-xs text-slate-300">{idx + 1}. {item}</p>
+              ))}
+            </div>
+          </div>
+          <div className="mb-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">Result</p>
+            <p className="mt-1 text-sm text-emerald-100/90">{day.result || day.expectedImpact}</p>
           </div>
           <div className="space-y-2.5">
             {day.actions.map((action, i) => (

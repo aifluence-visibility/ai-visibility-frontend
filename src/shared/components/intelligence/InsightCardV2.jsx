@@ -29,6 +29,9 @@ export function InsightCardV2({ insight, index = 0 }) {
     competitorDominancePct,
     impact = "medium",
     impactPoints,
+    priorityScore,
+    effortLevel,
+    impactLevel,
   } = insight;
   const style = IMPACT_STYLE[impact] || IMPACT_STYLE.medium;
   const riskTone = riskLevel === "high" ? "border-red-500/35 bg-red-500/10 text-red-300" : riskLevel === "medium" ? "border-amber-500/35 bg-amber-500/10 text-amber-300" : "border-emerald-500/35 bg-emerald-500/10 text-emerald-300";
@@ -62,6 +65,15 @@ export function InsightCardV2({ insight, index = 0 }) {
                 )}
                 {typeof competitorDominancePct === "number" && (
                   <span className="text-[10px] font-bold text-rose-300">{competitorDominancePct}% competitor dominance</span>
+                )}
+                {typeof priorityScore === "number" && (
+                  <span className="text-[10px] font-bold text-cyan-300">Priority {priorityScore}</span>
+                )}
+                {effortLevel && (
+                  <span className="text-[10px] font-bold text-slate-300">Effort {effortLevel}</span>
+                )}
+                {impactLevel && (
+                  <span className="text-[10px] font-bold text-emerald-300">Impact {impactLevel}</span>
                 )}
               </div>
               <p className="text-sm font-bold text-white leading-snug">{title}</p>

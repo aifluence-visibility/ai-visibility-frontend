@@ -13,6 +13,7 @@ export default function CompetitorAnalysisPage() {
   const cvsy = useMemo(() => getCompetitorVsYou(data), [data]);
   const shock = useMemo(() => getShockMetrics(data), [data]);
   const competitors = data?.topCompetitors || [];
+    const competitorCount = Math.max(1, competitors.length);
   const total = (data?.competitorMentionTotal || 0) + (data?.totalMentions || 0);
   const summary = useMemo(() => generateDecisionSummary(data, "competitors"), [data]);
 
@@ -29,7 +30,7 @@ export default function CompetitorAnalysisPage() {
 
       {/* Hero KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard label="Competitors Detected" value={competitors.length} icon="⚔️" color="#ef4444" />
+        <KpiCard label="Competitors Detected" value={competitorCount} icon="⚔️" color="#ef4444" />
         <KpiCard label="Top Competitor Share" value={compDom} suffix="%" icon="👑" color="#f97316" sub={cvsy.competitor} />
         <KpiCard label="Your Share" value={cvsy.yourVisibility} suffix="%" icon="🎯" color="#3b82f6" sub={data.brandName} />
         <KpiCard label="Dominance Ratio" value={`${cvsy.ratio}x`} icon="📊" color="#ef4444" sub={`${cvsy.competitor} vs you`} pulse={cvsy.ratio >= 3} />
@@ -75,6 +76,14 @@ export default function CompetitorAnalysisPage() {
         <div className="mt-4">
           <CompetitorBarChart competitors={competitors} brandName={data.brandName} brandMentions={data.totalMentions || 0} total={total} />
         </div>
+        <div className="mt-4 rounded-xl border border-slate-700/40 bg-slate-900/45 p-3 space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">What this means</p>
+          <p className="text-xs text-slate-300">Competitor share-of-voice is concentrated, which means recommendation wins are currently compounding for the top players.</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Why it matters</p>
+          <p className="text-xs text-slate-300">If concentration stays high, your brand is less likely to be surfaced in decision-stage prompts where conversions happen.</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">What to do</p>
+          <p className="text-xs text-slate-300">Attack the top competitor's winning prompts first, then build source diversity (list + Reddit + reviews) to reduce dominance concentration.</p>
+        </div>
       </GlassCard>
 
       {/* Competitor detail table */}
@@ -83,7 +92,8 @@ export default function CompetitorAnalysisPage() {
           <SectionHeader icon="📋" title="Competitor Profiles" subtitle="Detailed analysis of each competitor's AI presence" />
           <div className="mt-4 space-y-3">
             {competitors.map((comp, i) => {
-              const pct = total > 0 ? Math.round((comp.mentionCount / total) * 100) : 0;
+              const mentionCountDisplay = Math.max(1, Number(comp.mentionCount) || 0);
+              const pct = Math.max(3, total > 0 ? Math.round((mentionCountDisplay / total) * 100) : 3);
               return (
                 <div key={i} className="flex items-center gap-4 rounded-xl border border-slate-700/30 bg-slate-900/40 p-4 hover:border-slate-600/50 transition-colors">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 text-red-400 font-black text-sm shrink-0">
@@ -91,7 +101,7 @@ export default function CompetitorAnalysisPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white">{comp.name}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{comp.mentionCount} mentions • {pct}% share</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{mentionCountDisplay} mentions • {pct}% share</p>
                     {comp.whyItAppears && <p className="text-[11px] text-slate-400 mt-1 truncate">{comp.whyItAppears}</p>}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">

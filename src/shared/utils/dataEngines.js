@@ -179,6 +179,11 @@ export function detectSources(data) {
     counts.news = seededInt(seed, 4, 1, 8);
   }
 
+  // Weak should never look empty: keep a low baseline for every source class.
+  Object.keys(counts).forEach((key) => {
+    counts[key] = Math.max(1, Math.round(counts[key] || 0));
+  });
+
   const totalFinal = Object.values(counts).reduce((s, v) => s + v, 0) || 1;
   const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   const dominant = entries[0][0];
@@ -215,12 +220,17 @@ export function detectSources(data) {
     news: "News",
   };
 
-  const chartData = Object.entries(counts).map(([type, count]) => ({
+  const rawChartData = Object.entries(counts).map(([type, count]) => ({
     type: labelMap[type] || type,
     count,
     pct: Math.round((count / totalFinal) * 100),
     color: { reddit: "#ff4500", blog: "#3b82f6", list_article: "#a855f7", news: "#f59e0b", docs: "#10b981" }[type],
   }));
+  const chartData = rawChartData.map((item) => ({ ...item, pct: Math.max(3, item.pct) }));
+  const pctDrift = 100 - chartData.reduce((sum, item) => sum + item.pct, 0);
+  if (chartData.length > 0) {
+    chartData[0].pct += pctDrift;
+  }
 
   const sourceOrder = [...entries].map(([k]) => k);
   const sourcePattern = `${sourceOrder[0]} -> ${sourceOrder[1]} -> ${sourceOrder[2]}`;
@@ -267,8 +277,8 @@ export function generateCompetitorInsights(data) {
 
   return allComps.slice(0, 6).map((comp, i) => {
     const name = comp.name || comp;
-    const mentionCount = comp.mentionCount || seededInt(seed, i * 3, 3, 25);
-    const frequency = total > 0 ? Math.round((mentionCount / total) * 100) : seededInt(seed, i * 3 + 1, 15, 65);
+    const mentionCount = Math.max(1, comp.mentionCount || seededInt(seed, i * 3, 3, 25));
+    const frequency = Math.max(3, total > 0 ? Math.round((mentionCount / total) * 100) : seededInt(seed, i * 3 + 1, 15, 65));
     const shareGap = Math.max(0, frequency - (total > 0 ? Math.round((brandMentions / total) * 100) : 12));
 
     // Which prompts does this competitor appear in?
@@ -304,6 +314,7 @@ export function generateCompetitorInsights(data) {
       topPrompts,
       advantageReason,
       action: actions[i % actions.length],
+      pattern: `${name} wins through ${topSources.join(" + ")} and comparison prompts`,
       rank: i + 1,
       source: comp.source || "detected",
     };
@@ -458,6 +469,9 @@ export function generateInsight({ context, data, index = 0 }) {
 
   return {
     ...base,
+    priorityScore: Math.max(55, Math.min(98, (base.impactPoints || 10) * 4 + (riskLevel === "high" ? 18 : riskLevel === "medium" ? 10 : 4))),
+    effortLevel: base.impact === "high" ? "medium" : base.impact === "medium" ? "low" : "low",
+    impactLevel: base.impact || "medium",
     risk,
     riskLevel,
     estimatedLoss,
@@ -473,12 +487,12 @@ export function generateInsight({ context, data, index = 0 }) {
  */
 export function generateAllInsights(data) {
   return [
-    generateInsight({ context: "competitor", data, index: 0 }),
-    generateInsight({ context: "query", data, index: 1 }),
-    generateInsight({ context: "region", data, index: 2 }),
-    generateInsight({ context: "sources", data, index: 3 }),
-    generateInsight({ context: "faq", data, index: 4 }),
-    generateInsight({ context: "authority", data, index: 5 }),
+    { ...generateInsight({ context: "query", data, index: 0 }), section: "Visibility gaps", priorityScore: 93 },
+    { ...generateInsight({ context: "competitor", data, index: 1 }), section: "Competitor dominance", priorityScore: 90 },
+    { ...generateInsight({ context: "faq", data, index: 2 }), section: "Content structure issues", priorityScore: 84 },
+    { ...generateInsight({ context: "sources", data, index: 3 }), section: "Source-level problems", priorityScore: 80 },
+    { ...generateInsight({ context: "faq", data, index: 4 }), section: "Execution support", priorityScore: 76 },
+    { ...generateInsight({ context: "authority", data, index: 5 }), section: "Authority reinforcement", priorityScore: 82 },
   ];
 }
 
@@ -715,8 +729,6 @@ export function generateRecoveryPlan(data) {
   const topComp = data?.topCompetitors?.[0];
   const compName = topComp?.name || "your top competitor";
   const vis = computeVisibilityScore(data);
-  const queryInsights = data?.queryInsights || [];
-  const topQuery = queryInsights[0];
   const weakRegion = data?.weakestRegion || "Germany";
   const strongestRegion = data?.strongestRegion || "US";
   const industry = data?.industry || "your industry";
@@ -725,10 +737,13 @@ export function generateRecoveryPlan(data) {
   const dayPlan = [
     {
       day: 1,
-      title: "Competitive intelligence audit",
-      theme: "Know the battlefield before you fight",
+      title: "Competitor breakdown",
+      theme: "Map who wins, where they win, and why",
       icon: "🔍",
       impactLevel: "medium",
+      task: "Identify 5 high-intent competitor comparison queries and current winner pages.",
+      output: ["Query list (5 items)", "Top competitor URLs", "Gap baseline sheet"],
+      result: "Baseline gap identified and ranked by commercial intent.",
       objective: `Map exactly why ${compName} beats ${brand} in AI recommendations. Create your attack matrix.`,
       actions: [
         `Search "best ${industry} tools" in ChatGPT, Perplexity, and Claude. Screenshot every result where ${compName} appears and ${brand} doesn't.`,
@@ -746,17 +761,20 @@ export function generateRecoveryPlan(data) {
     },
     {
       day: 2,
-      title: `Build "${brand} vs ${compName}" comparison page`,
-      theme: "Own the comparison query before losing it permanently",
+      title: "Missing content sprint",
+      theme: "Close the highest-impact content gaps first",
       icon: "⚔️",
       impactLevel: "high",
-      objective: `Create the single most important page for your AI visibility: a head-to-head comparison targeting the #1 decision-stage query.`,
+      task: `Create one comparison-page blueprint for ${brand} vs ${compName}.`,
+      output: ["H1/H2 structure", "Section-by-section brief", "Schema-ready FAQ block"],
+      result: "Ready-to-write conversion page structure.",
+      objective: `Publish the minimum content set AI needs to cite ${brand} in decision queries.`,
       actions: [
-        `Write a 1,500+ word page titled "${brand} vs ${compName}: Which is Better in ${new Date().getFullYear()}?"`,
-        `Include: feature comparison table, pricing table, ideal customer for each, pros/cons, 3 real use-case scenarios.`,
-        `Add JSON-LD FAQ schema with 8+ questions about the comparison (schema.org/FAQPage).`,
-        `Add a comparison table with checkboxes — AI extracts structured tables first.`,
-        `Submit page URL to Google Search Console and share on LinkedIn/Twitter to accelerate indexing.`,
+        `Publish 1 comparison page ("${brand} vs ${compName}") and 1 alternatives page in the same week.`,
+        `Add feature table, pricing table, and 3 use-case outcomes with measurable proof.`,
+        `Add FAQ schema with 8+ decision-stage questions so AI can extract directly.`,
+        `Ship one "best ${industry} tools" page with explicit recommendation criteria.`,
+        `Submit all new URLs to Search Console and indexing APIs on publish day.`,
       ],
       expectedImpact: `${compName} currently owns "${compName} vs ${brand}" queries at ${topComp?.appearanceRate || seededInt(seed, 1, 60, 85)}% share. This page directly attacks that.`,
       estimatedImpact: `+${seededInt(seed, 2, 12, 20)} visibility points within 3-4 weeks`,
@@ -767,17 +785,20 @@ export function generateRecoveryPlan(data) {
     },
     {
       day: 3,
-      title: "Launch structured FAQ content hub",
-      theme: "Give AI the exact format it needs to cite you",
+      title: "Quick wins deployment",
+      theme: "Deliver fast, visible improvements in 72 hours",
       icon: "❓",
       impactLevel: "high",
-      objective: `Publish 25 FAQ questions with schema markup. This is the fastest way to appear in conversational AI answers.`,
+      task: "Publish structured FAQ content for the top missed prompts.",
+      output: ["10-15 Q&A pairs", "FAQ schema", "Internal links to key pages"],
+      result: "AI citation eligibility established for informational queries.",
+      objective: `Push high-velocity changes that improve mention probability immediately.`,
       actions: [
-        `Create /faq page with 25 questions covering: what is ${brand}?, ${brand} pricing, ${brand} vs alternatives, how to use ${brand}, ${brand} for [top use cases].`,
-        `Add FAQPage + Q&A schema (JSON-LD) — test with Google's Rich Results Test before publishing.`,
-        `Answer each question in 80-150 words, structured as: direct answer first, then elaboration.`,
-        `Target this specific question: "${topQuery?.query || `best ${industry} tools for`} [job to be done]".`,
-        `Internal-link FAQ answers back to your comparison pages and product pages.`,
+        `Create one "answer-first" FAQ page with 12 high-intent questions from your missed prompts list.`,
+        `Rewrite homepage hero + product summary to include category, buyer, and differentiation in one paragraph.`,
+        `Add comparison snippets to your top 2 traffic pages using list format (AI-preferred layout).`,
+        `Patch metadata and headings for top 5 pages to align with tracked prompt vocabulary.`,
+        `Re-crawl and validate structured data for updated pages.`,
       ],
       expectedImpact: `FAQ schema was present in ${seededInt(seed, 4, 35, 55)}% of AI citation sources analyzed. Adding it unlocks a new citation class for ${brand}.`,
       estimatedImpact: `+${seededInt(seed, 5, 9, 16)} visibility points within 2-3 weeks`,
@@ -788,17 +809,20 @@ export function generateRecoveryPlan(data) {
     },
     {
       day: 4,
-      title: `Dominate Reddit for "${industry}" queries`,
-      theme: "Community validation is AI training data",
+      title: "Authority signals stack",
+      theme: "Build third-party trust that AI systems weight heavily",
       icon: "👾",
       impactLevel: "medium",
-      objective: `Post 3 Reddit threads that AI can cite as community validation for ${brand}. Reddit is one of the most heavily weighted AI training sources.`,
+      task: "Find and engage 3 relevant Reddit/community threads tied to high-intent prompts.",
+      output: ["Thread links", "Response drafts", "Published replies"],
+      result: "First external conversation signals created.",
+      objective: `Increase external trust signals so ${brand} moves from optional mention to primary recommendation.`,
       actions: [
-        `Post in r/${industry.replace(/\s+/g, "").toLowerCase()} or r/entrepreneur: Thread title: "Here's what I found after testing 8 ${industry} tools (detailed breakdown)"`,
-        `Include ${brand} in the comparison — be factual, non-promotional. Show real data, real use cases.`,
-        `Post a second thread: "Has anyone compared ${brand} vs ${compName}? Here's my experience after 6 months"`,
-        `Respond to existing threads mentioning ${compName} with a thoughtful, data-backed comment mentioning ${brand}.`,
-        `Upvote, engage with comments for 48 hours — Reddit threads that get early engagement get indexed within days.`,
+        `Launch review sprint: request 20 fresh reviews across G2/Capterra/industry directories.`,
+        `Secure 2 third-party citations (newsletter, review site, expert roundup) this week.`,
+        `Create a "proof" page with testimonials, quantified outcomes, and citation links.`,
+        `Publish one founder/expert POV article on a trusted external channel.`,
+        `Track authority-source growth by domain count and confidence tier.`,
       ],
       expectedImpact: `${compName} appears in ${seededInt(seed, 7, 8, 20)} Reddit threads that AI cites. ${brand} currently has 0. These threads can appear in AI responses within 1 week of posting.`,
       estimatedImpact: `+${seededInt(seed, 8, 8, 14)} visibility points within 1-2 weeks`,
@@ -809,17 +833,20 @@ export function generateRecoveryPlan(data) {
     },
     {
       day: 5,
-      title: `Capture ${weakRegion} market — localized content push`,
-      theme: `${brand} scores ${data?.regionVisibility?.find(r => r.region === weakRegion)?.score || Math.max(5, vis - 18)}/100 in ${weakRegion}. Fix it today.`,
+      title: "Content execution cadence",
+      theme: "Run a production sprint with daily output and QA",
       icon: "🌍",
       impactLevel: "medium",
-      objective: `Close the ${Math.abs((data?.regionVisibility?.find(r => r.region === strongestRegion)?.score || vis + 6) - (data?.regionVisibility?.find(r => r.region === weakRegion)?.score || vis - 18))}-point gap between ${strongestRegion} and ${weakRegion} with targeted localization.`,
+      task: `Create one list-based article targeting "best ${industry} tools" intent.`,
+      output: ["List article outline", "Comparison matrix", "Publish-ready draft"],
+      result: "Entry into list-style recommendation mentions.",
+      objective: `Ship content in sequence so every piece reinforces the next and closes recommendation gaps.`,
       actions: [
-        `Localize your homepage meta description for ${weakRegion} buyers — mention local use cases, currency, and compliance (e.g., GDPR for Germany).`,
-        `Translate (or create) your top comparison page in the ${weakRegion} market language — German, French, etc.`,
-        `Add hreflang tags to signal to AI/search what region each page targets.`,
-        `Find 3 ${weakRegion}-specific directories, product listings, or press sites and submit ${brand}.`,
-        `Create 1 ${weakRegion}-specific landing page with region-specific value propositions and social proof.`,
+        `Set a 5-day publication board: 2 comparison pieces, 1 FAQ block update, 1 authority piece, 1 recap post.`,
+        `Assign owner + due date + QA checklist for each piece before publishing.`,
+        `Use one internal linking hub to connect all sprint assets into one recommendation graph.`,
+        `Track each page against 3 target prompts and log first appearance date.`,
+        `Roll underperforming draft topics into next-week backlog using prompt-loss data.`,
       ],
       expectedImpact: `${weakRegion} AI visibility at ${data?.regionVisibility?.find(r => r.region === weakRegion)?.score || vis - 18}/100 can reach ${Math.min(90, (data?.regionVisibility?.find(r => r.region === weakRegion)?.score || vis - 18) + 20)}/100 with this localization sprint.`,
       estimatedImpact: `+${seededInt(seed, 10, 8, 18)} region score within 3-4 weeks`,
@@ -830,17 +857,20 @@ export function generateRecoveryPlan(data) {
     },
     {
       day: 6,
-      title: "Build review authority and third-party validation",
-      theme: "AI trusts citations, not your claims",
+      title: "Optimization loop",
+      theme: "Refine what works and repair what stalls",
       icon: "⭐",
       impactLevel: "high",
-      objective: `Collect 20+ new third-party reviews and secure 3 mention-worthy citations from sources AI weighs heavily.`,
+      task: "Secure one external mention via outreach or directory listing.",
+      output: ["Outreach message", "Submitted listing/placement", "Tracking note"],
+      result: "Authority signal added to source profile.",
+      objective: `Use performance signals to improve conversion prompts, positioning, and source mix.`,
       actions: [
-        `Email 100 existing customers with a 2-sentence review request and G2/Capterra review link. Subject: "Can you share 60 seconds of feedback?"`,
-        `Add a G2/Capterra badge to your homepage and pricing page — social proof signals to AI crawlers.`,
-        `Pitch 5 newsletter editors with a data-driven story about ${brand} vs ${compName}. Offer an exclusive benchmark or survey result as the hook.`,
-        `Create a "What customers say about ${brand} vs ${compName}" page using verified quotes — structured with schema markup.`,
-        `Request a product listing in 3 relevant tool directories (AlternativeTo, SaaSHub, Slant) with detailed descriptions.`,
+        `Audit prompt-level outcomes and identify top 3 gains + top 3 unresolved losses.`,
+        `Rewrite underperforming page intros to answer user intent in the first 2 sentences.`,
+        `Swap weak citations with stronger domains and refresh outdated claims.`,
+        `Improve comparison tables with buyer-fit rows (team size, use case, implementation speed).`,
+        `Re-run source detection and rebalance if one source exceeds 45% dependency.`,
       ],
       expectedImpact: `Review authority is the single most reliable predictor of AI recommendation frequency. ${compName}'s dominance is partially built on review volume. Closing this gap is critical.`,
       estimatedImpact: `+${seededInt(seed, 12, 10, 18)} visibility points over 4-6 weeks`,
@@ -851,17 +881,20 @@ export function generateRecoveryPlan(data) {
     },
     {
       day: 7,
-      title: "Measure, systematize, and compound",
-      theme: "Turn a 7-day sprint into a permanent visibility engine",
+      title: "Scaling plan",
+      theme: "Turn this sprint into a repeatable growth engine",
       icon: "📈",
       impactLevel: "low",
-      objective: `Establish a weekly AI visibility tracking cadence so the gains from days 1-6 compound rather than decay.`,
+      task: "Optimize published assets for AI extraction and define the next 30-day loop.",
+      output: ["Structured answer blocks", "Extraction-ready summaries", "30-day scaling roadmap"],
+      result: "Higher probability of sustained AI visibility growth.",
+      objective: `Lock process, owners, and KPIs so growth compounds each cycle instead of resetting.`,
       actions: [
-        `Re-run your Day 1 audit: search the same queries in ChatGPT, Perplexity, and Claude. Document what changed.`,
-        `Set up a weekly calendar reminder: every Monday, test 10 queries + check if new content is being cited.`,
-        `Create a "Visibility Wins" doc — log every new query where ${brand} appears. Celebrate and share with team.`,
-        `Identify the 3 highest-impact pages you built this week and set up monthly update reminders to keep them fresh.`,
-        `Plan week 2 sprint: 2 new comparison pages, 5 more G2 reviews, 2 more Reddit threads. Compound the momentum.`,
+        `Define weekly operating cadence: Monday diagnose, Tuesday write, Wednesday publish, Thursday distribute, Friday optimize.`,
+        `Set quarterly targets for visibility, traffic recovery, and revenue recovery with owners per metric.`,
+        `Create a reusable prompt-opportunity scoring model to rank future content work.`,
+        `Template your top-performing content structures and reuse across new categories/regions.`,
+        `Launch next 30-day roadmap with budget and expected ROI per initiative.`,
       ],
       expectedImpact: `Brands that track weekly AI visibility improve ${seededInt(seed, 14, 2, 4)}x faster than those who check monthly. Consistency beats intensity.`,
       estimatedImpact: `Compounding effect: existing actions gain +${seededInt(seed, 15, 3, 8)} pts within 2 weeks of systematic follow-up`,

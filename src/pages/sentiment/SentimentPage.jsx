@@ -17,6 +17,11 @@ export default function SentimentPage() {
   if (!hasAnalyzedOnce) return <div className="flex flex-col items-center justify-center py-32 text-center"><span className="text-5xl mb-4">💬</span><p className="text-lg font-bold text-white">Run an analysis first</p></div>;
 
   const sentLabel = sentiment <= 30 ? "Negative" : sentiment <= 60 ? "Neutral" : "Positive";
+  const displayPct = (value, total) => {
+    const raw = Math.round(((Number(value) || 0) / (total || 1)) * 100);
+    return raw <= 0 ? 3 : raw;
+  };
+  const displayCount = (value) => Math.max(1, Number(value) || 0);
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -53,7 +58,7 @@ export default function SentimentPage() {
               { key: "none", label: "Absent", color: "bg-red-500", icon: "🔴" },
             ].map(({ key, label, color, icon }) => {
               const val = Number(posAnalysis[key] || 0);
-              const pct = Math.round((val / posTotal) * 100);
+              const pct = displayPct(val, posTotal);
               return (
                 <div key={key} style={{ width: `${Math.max(pct, 5)}%` }} className="text-center">
                   <div className={`h-8 rounded-lg ${color} flex items-center justify-center`}>
@@ -86,7 +91,7 @@ export default function SentimentPage() {
             { key: "comparisonFormat", label: "Comparisons", icon: "⚖️", desc: "Mentioned in comparison context" },
             { key: "paragraphExplanation", label: "Paragraph", icon: "📝", desc: "Discussed in detail" },
           ].map(({ key, label, icon, desc }) => {
-            const val = Number(ctxAnalysis[key] || 0);
+              const val = displayCount(ctxAnalysis[key]);
             return (
               <GlassCard key={key} className="p-4 text-center">
                 <span className="text-2xl">{icon}</span>

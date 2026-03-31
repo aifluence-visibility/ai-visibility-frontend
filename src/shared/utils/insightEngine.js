@@ -136,42 +136,50 @@ export function generateDecisionSummary(data, page) {
 /* ─── Structured Actions (Quick Wins / Strategic / Risks) ─── */
 
 export function generateStructuredQuickWins(data) {
-  const brandName = data?.brandName || "Your brand";
   const topComp = getTopCompetitor(data);
   const queryInsights = data?.queryInsights || [];
   const wins = [];
 
   if (topComp) {
     wins.push({
-      title: `Create "${brandName} vs ${topComp.name}" comparison page`,
-      explanation: `${topComp.name} dominates AI recommendations. Comparison content is the #1 format AI cites for decision queries.`,
+      title: `Comparison gap confirmed vs ${topComp.name}`,
+      explanation: `${topComp.name} dominates decision-stage prompts. You need a direct comparison asset to enter those answers.`,
       impact: "Critical",
       effort: "Medium",
+      impactLevel: "high",
+      effortLevel: "medium",
       priorityScore: 95,
-      expectedImpact: "+15-25% visibility in comparison queries within 4 weeks",
-      timeframe: "This week",
+      expectedImpact: "Surface-level projection: high upside in comparison prompts",
+      timeframe: "48h",
+      mode: "analysis",
     });
   }
 
   wins.push({
-    title: "Publish structured FAQ page with 20+ Q&As",
-    explanation: "AI systems extract Q&A content directly. Structured FAQs are the fastest path to getting cited in conversational AI.",
+    title: "FAQ coverage gap detected",
+    explanation: "Your current format mix is weak for conversational extraction. FAQ coverage is required for broader AI recall.",
     impact: "High",
     effort: "Low",
+    impactLevel: "high",
+    effortLevel: "low",
     priorityScore: 90,
-    expectedImpact: "+10-15% citation rate in informational queries within 3 weeks",
-    timeframe: "3 days",
+    expectedImpact: "Surface-level projection: improves informational query inclusion",
+    timeframe: "24-48h",
+    mode: "analysis",
   });
 
   if (queryInsights.length > 0) {
     wins.push({
-      title: `Target "${queryInsights[0]?.query || "best alternatives"}" with dedicated content`,
-      explanation: `This is your highest-loss query. ${queryInsights[0]?.topCompetitor || "Competitor"} currently dominates at ${queryInsights[0]?.dominancePct || 0}%.`,
+      title: `Prompt gap identified: "${queryInsights[0]?.query || "best alternatives"}"`,
+      explanation: `${queryInsights[0]?.topCompetitor || "Competitor"} dominates this prompt path. Dedicated query content is required to compete.`,
       impact: "Critical",
       effort: "Medium",
+      impactLevel: "high",
+      effortLevel: "medium",
       priorityScore: 88,
-      expectedImpact: "Recover #1 lost query — estimated 50-100 monthly visitors",
+      expectedImpact: "Surface-level projection: recovers one high-intent query lane",
       timeframe: "This week",
+      mode: "analysis",
     });
   }
 
@@ -181,34 +189,71 @@ export function generateStructuredQuickWins(data) {
 export function generateStrategicActions(data) {
   const brandName = data?.brandName || "Your brand";
   const vis = computeVisibilityScore(data);
+  const lossPct = computeTrafficLossPct(data);
+  const shock = getShockMetrics(data);
+  const topComp = getTopCompetitor(data);
+  const compName = topComp?.name || "top competitor";
 
   return [
     {
-      title: `Get listed in 5+ industry "best of" articles`,
-      explanation: `List-format content is the #1 format AI cites for recommendations. Currently ${brandName} appears in too few authoritative lists.`,
+      title: "Execution Track A: Decision Query Capture",
+      explanation: `Build consultant-grade coverage for buying prompts where ${compName} is currently preferred.`,
       impact: "High",
-      effort: "High",
-      priorityScore: 82,
-      expectedImpact: `+20-30% AI mention rate within 8 weeks`,
-      timeframe: "2-4 weeks",
+      effort: "Medium",
+      impactLevel: "high",
+      effortLevel: "medium",
+      priorityScore: 90,
+      timeframe: "Weeks 1-3",
+      timelineWeeks: 3,
+      executionSteps: [
+        `Week 1: Publish 2 comparison assets (${brandName} vs ${compName}, alternatives page).`,
+        "Week 2: Add FAQ schema and buyer objections blocks to both pages.",
+        "Week 3: Distribute pages to 3 listicle publishers and 2 communities.",
+      ],
+      expectedImpact: `+${Math.max(10, Math.round((100 - vis) * 0.28))} visibility points`,
+      expectedTrafficGain: Math.round(shock.estimatedLostTraffic * 0.22),
+      expectedRevenueImpact: Math.round(shock.estimatedMonthlyLoss * 0.2),
+      mode: "pro",
     },
     {
-      title: "Build citation authority through reviews and press",
-      explanation: `AI trusts third-party validation (G2, Capterra, media mentions). More citations = higher authority = earlier positioning in AI responses.`,
+      title: "Execution Track B: Authority Signal Stack",
+      explanation: `Increase trust-weighted citations so AI systems treat ${brandName} as a recommendation candidate, not a fallback mention.`,
       impact: "High",
       effort: "High",
-      priorityScore: 75,
-      expectedImpact: "Improved source authority score and earlier mention positioning",
-      timeframe: "1-2 months",
+      impactLevel: "high",
+      effortLevel: "high",
+      priorityScore: 84,
+      timeframe: "Weeks 2-6",
+      timelineWeeks: 6,
+      executionSteps: [
+        "Week 2: Launch review sprint (G2/Capterra target: 20 new reviews).",
+        "Week 3-4: Secure 3 third-party citations (newsletter, review blog, media mention).",
+        "Week 5-6: Publish proof hub with case-study metrics and source links.",
+      ],
+      expectedImpact: `Reduce risk score by ${Math.max(8, Math.round(lossPct * 0.2))} points`,
+      expectedTrafficGain: Math.round(shock.estimatedLostTraffic * 0.18),
+      expectedRevenueImpact: Math.round(shock.estimatedMonthlyLoss * 0.16),
+      mode: "pro",
     },
     {
-      title: `Launch AI-optimized content hub (${Math.max(3, Math.round((100 - vis) / 10))} pages)`,
-      explanation: `Systematic content creation targeting all missed queries. Each page structured for AI extraction: lists, comparisons, structured data.`,
+      title: "Execution Track C: Compounding Content System",
+      explanation: `Convert isolated fixes into a weekly operating system with prioritized backlog, publication cadence, and outcome tracking.`,
       impact: "Critical",
       effort: "High",
-      priorityScore: 70,
-      expectedImpact: `Target visibility score: ${Math.min(85, vis + 30)}/100 within 90 days`,
-      timeframe: "1-3 months",
+      impactLevel: "high",
+      effortLevel: "high",
+      priorityScore: 78,
+      timeframe: "Weeks 4-12",
+      timelineWeeks: 12,
+      executionSteps: [
+        `Weeks 4-6: Publish ${Math.max(4, Math.round((100 - vis) / 9))} query-led pages from loss dashboard.`,
+        "Weeks 7-9: Refresh top performers with new citations and structured comparisons.",
+        "Weeks 10-12: Retire low-performers and reinvest into winning prompt clusters.",
+      ],
+      expectedImpact: `Target visibility score ${Math.min(88, vis + 26)}/100`,
+      expectedTrafficGain: Math.round(shock.estimatedLostTraffic * 0.34),
+      expectedRevenueImpact: Math.round(shock.estimatedMonthlyLoss * 0.3),
+      mode: "pro",
     },
   ];
 }
@@ -229,6 +274,8 @@ export function generateRisks(data) {
       explanation: `At ${vis}/100 visibility, ${brandName} is functionally invisible. Every AI conversation about your market drives traffic to ${compName}. This compounds monthly.`,
       impact: "Critical",
       effort: "N/A",
+      impactLevel: "high",
+      effortLevel: "high",
       priorityScore: 98,
       expectedImpact: `-$${(shock.estimatedMonthlyLoss * 12).toLocaleString()}/year if unaddressed`,
     });
@@ -240,6 +287,8 @@ export function generateRisks(data) {
       explanation: `At ${compDom}% dominance, ${compName} benefits from AI's self-reinforcing cycle: more citations → more authority → more citations. The gap widens every week.`,
       impact: "Critical",
       effort: "N/A",
+      impactLevel: "high",
+      effortLevel: "high",
       priorityScore: 92,
       expectedImpact: "Competitor advantage compounds 5-10% per month without intervention",
     });
@@ -250,6 +299,8 @@ export function generateRisks(data) {
     explanation: `15-25% of search traffic now goes through AI assistants. Brands invisible to AI lose this traffic permanently — it doesn't show up in Google Analytics.`,
     impact: "High",
     effort: "N/A",
+    impactLevel: "high",
+    effortLevel: "medium",
     priorityScore: 85,
     expectedImpact: "Growing % of customer decisions bypass traditional search entirely",
   });
