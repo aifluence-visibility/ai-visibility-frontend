@@ -132,9 +132,13 @@ function PromptGapCard({ item }) {
 
 export function GapCards({ gapData, className = "" }) {
   const [activeTab, setActiveTab] = useState("content");
-
-  if (!gapData) return null;
-  const { missingContent, missingSources, missingRegions, missingPrompts } = gapData;
+  const safeGapData = gapData || {
+    missingContent: [],
+    missingSources: [],
+    missingRegions: [],
+    missingPrompts: [],
+  };
+  const { missingContent, missingSources, missingRegions, missingPrompts } = safeGapData;
 
   const tabs = [
     { key: "content", label: "Content gaps", count: missingContent?.length || 0, icon: "📄" },

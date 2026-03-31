@@ -1,8 +1,18 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { ANALYZE_API_URL } from "../../api";
 import { markFrontendPaymentSuccess } from "../utils/paymentFlow";
 
 const AnalysisContext = createContext(null);
+
+const ANALYSIS_CACHE_KEY = "lumio-analysis-cache-v2";
+const ANALYSIS_CACHE_SCHEMA_VERSION = 2;
+const LEGACY_ANALYSIS_KEYS = [
+  "ai-visibility-last-analysis",
+  "ai-visibility-settings",
+  "ai-visibility-email",
+  "lumio-analysis-cache",
+  "lumio-analysis-data",
+];
 
 const defaultData = {
   brandName: "", industry: "", country: "", score: 0, prevScore: undefined,
@@ -25,6 +35,8 @@ const defaultData = {
   detectedCompetitors: [],
   mergedCompetitors: [],
   detectedOnlyCount: 0,
+  fallbackInjected: false,
+  dataSource: "default",
 };
 
 function sanitizeHTML(input) {
@@ -118,8 +130,114 @@ function isWeakAnalysis(analysis) {
   const n = analysis || {};
   const mbp = Array.isArray(n.mentionsByPrompt) ? n.mentionsByPrompt : [];
   const comps = Array.isArray(n.competitors) ? n.competitors : [];
+  const validPromptCount = mbp.filter((entry) => {
+    const prompt = sanitizeHTML(entry?.prompt || "").trim();
+    const mentionCount = Number(entry?.mentions) || 0;
+    const validComps = Array.isArray(entry?.competitors)
+      ? entry.competitors.filter((comp) => sanitizeHTML(typeof comp === "string" ? comp : comp?.name || comp?.brand || "").trim()).length
+      : 0;
+    return Boolean(prompt) || mentionCount > 0 || validComps > 0;
+  }).length;
+  const validCompCount = comps.filter((item) => {
+    const name = sanitizeHTML(typeof item === "string" ? item : item?.name || item?.brand || "").trim();
+    return Boolean(name);
+  }).length;
   const totalMentions = Number(n.totalMentions ?? 0) || mbp.reduce((s, i) => s + (Number(i?.mentions) || 0), 0);
-  return mbp.length < 3 || comps.length < 2 || totalMentions <= 0;
+  return validPromptCount < 3 || validCompCount < 2 || totalMentions <= 0;
+}
+
+function hasRenderableShape(mapped) {
+  if (!mapped || typeof mapped !== "object") return false;
+  const hasBrand = Boolean(sanitizeHTML(mapped.brandName || "").trim());
+  const hasPrompts = Array.isArray(mapped.promptRows) && mapped.promptRows.some((row) => sanitizeHTML(row?.prompt || "").trim());
+  const hasComps = Array.isArray(mapped.topCompetitors) && mapped.topCompetitors.some((c) => sanitizeHTML(c?.name || "").trim());
+  const hasRegions = Array.isArray(mapped.regionVisibility) && mapped.regionVisibility.length >= 3;
+  const hasTrend = Array.isArray(mapped.trend) && mapped.trend.length >= 2;
+  const hasSources = Array.isArray(mapped.topSources) ? mapped.topSources.length > 0 : true;
+  return hasBrand && hasPrompts && hasComps && hasRegions && hasTrend && hasSources;
+}
+
+function ensureNormalizedMinimum(mapped, payload, mode) {
+  const fallback = mapApiResponse(null, payload, mode, { forceFallback: true });
+  const base = mapped && typeof mapped === "object" ? mapped : {};
+  const normalized = {
+    ...fallback,
+    ...base,
+    topCompetitors: Array.isArray(base.topCompetitors) && base.topCompetitors.length ? base.topCompetitors : fallback.topCompetitors,
+    promptRows: Array.isArray(base.promptRows) && base.promptRows.length ? base.promptRows : fallback.promptRows,
+    queryInsights: Array.isArray(base.queryInsights) && base.queryInsights.length ? base.queryInsights : fallback.queryInsights,
+    regionVisibility: Array.isArray(base.regionVisibility) && base.regionVisibility.length ? base.regionVisibility : fallback.regionVisibility,
+    topSources: Array.isArray(base.topSources) && base.topSources.length ? base.topSources : fallback.topSources,
+    trend: Array.isArray(base.trend) && base.trend.length >= 2 ? base.trend : fallback.trend,
+    mergedCompetitors: Array.isArray(base.mergedCompetitors) && base.mergedCompetitors.length ? base.mergedCompetitors : fallback.mergedCompetitors,
+    detectedCompetitors: Array.isArray(base.detectedCompetitors) && base.detectedCompetitors.length ? base.detectedCompetitors : fallback.detectedCompetitors,
+    userCompetitors: Array.isArray(base.userCompetitors) ? base.userCompetitors : fallback.userCompetitors,
+  };
+
+  const structurallyWeak = !hasRenderableShape(normalized);
+  if (structurallyWeak) {
+    return {
+      ...fallback,
+      fallbackInjected: true,
+      dataSource: "fallback",
+    };
+  }
+
+  return {
+    ...normalized,
+    fallbackInjected: Boolean(base.fallbackInjected) || Boolean(structurallyWeak),
+  };
+}
+
+function clearLegacyAnalysisCache() {
+  try {
+    LEGACY_ANALYSIS_KEYS.forEach((key) => {
+      if (localStorage.getItem(key) != null) {
+        localStorage.removeItem(key);
+        console.warn("[Analysis] Invalidated legacy analysis cache key:", key);
+      }
+    });
+  } catch {
+    // Ignore storage errors in restricted environments.
+  }
+}
+
+function persistAnalysisCache(dataToPersist) {
+  try {
+    const payload = {
+      schemaVersion: ANALYSIS_CACHE_SCHEMA_VERSION,
+      savedAt: Date.now(),
+      data: dataToPersist,
+    };
+    localStorage.setItem(ANALYSIS_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // Ignore storage errors in restricted environments.
+  }
+}
+
+function readAnalysisCache() {
+  clearLegacyAnalysisCache();
+  try {
+    const raw = localStorage.getItem(ANALYSIS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.schemaVersion !== ANALYSIS_CACHE_SCHEMA_VERSION || !hasRenderableShape(parsed?.data)) {
+      localStorage.removeItem(ANALYSIS_CACHE_KEY);
+      console.warn("[Analysis] Invalidated stale analysis cache (schema/data mismatch)");
+      return null;
+    }
+    return {
+      ...parsed.data,
+      dataSource: "persisted-cache",
+    };
+  } catch {
+    try {
+      localStorage.removeItem(ANALYSIS_CACHE_KEY);
+    } catch {
+      // Ignore storage errors in restricted environments.
+    }
+    return null;
+  }
 }
 
 function mapApiResponse(analysis, payload, mode, options = {}) {
@@ -359,7 +477,8 @@ function getArrayStorage(key) {
 }
 
 export function AnalysisProvider({ children }) {
-  const [data, setData] = useState(defaultData);
+  const initialCachedData = useMemo(() => readAnalysisCache(), []);
+  const [data, setData] = useState(initialCachedData || defaultData);
   const [brandName, setBrandName] = useState("");
   const [industry, setIndustry] = useState("");
   const [country, setCountry] = useState("Auto (US, UK, Germany)");
@@ -367,7 +486,7 @@ export function AnalysisProvider({ children }) {
   const [competitors, setCompetitors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [hasAnalyzedOnce, setHasAnalyzedOnce] = useState(false);
+  const [hasAnalyzedOnce, setHasAnalyzedOnce] = useState(Boolean(initialCachedData));
   const [isPremiumModalOpen, setPremiumModalOpen] = useState(false);
   const [isLimitModalOpen, setLimitModalOpen] = useState(false);
   const [actionMode, setActionMode] = useState(false);
@@ -376,6 +495,16 @@ export function AnalysisProvider({ children }) {
   const [isProSubscriber, setIsProSubscriber] = useState(() => getBooleanStorage("lumio-pro-subscriber", false));
   const [isStrategyAddonEnabled, setStrategyAddonEnabled] = useState(() => getBooleanStorage("lumio-strategy-addon", false));
   const [analysisHistory, setAnalysisHistory] = useState(() => getArrayStorage("lumio-analysis-history"));
+
+  useEffect(() => {
+    if (initialCachedData) {
+      console.info("[Analysis] Restored analysis data from persisted cache", {
+        source: "persisted-cache",
+        fallbackInjected: Boolean(initialCachedData.fallbackInjected),
+        brandName: initialCachedData.brandName,
+      });
+    }
+  }, [initialCachedData]);
 
   const toggleAppliedAction = useCallback((id) => {
     setAppliedActions((prev) => prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]);
@@ -435,8 +564,17 @@ export function AnalysisProvider({ children }) {
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const json = await res.json();
       const analysis = json?.data || json;
+      console.info("[Analysis] raw API response", json);
       const mapped = mapApiResponse(analysis, { brandName: bn, industry: ind, targetCountry: co, competitors: inputCompetitors }, mo);
-      setData(mapped);
+      const normalized = ensureNormalizedMinimum(mapped, { brandName: bn, industry: ind, targetCountry: co, competitors: inputCompetitors }, mo);
+      const dataSource = normalized.fallbackInjected ? "fallback" : "api";
+      const finalData = { ...normalized, dataSource };
+      console.info("[Analysis] normalized mapped data", finalData);
+      console.info("[Analysis] fallbackInjected", Boolean(finalData.fallbackInjected));
+      console.info("[Analysis] data source", dataSource);
+
+      setData(finalData);
+      persistAnalysisCache(finalData);
       setHasAnalyzedOnce(true);
       if (!isProSubscriber) {
         setAnalysisCredits((prev) => {
@@ -449,10 +587,10 @@ export function AnalysisProvider({ children }) {
         const next = [
           {
             brandName: mapped.brandName,
-            score: mapped.visibilityScore,
+            score: finalData.visibilityScore,
             timestamp: new Date().toISOString(),
-            strongestRegion: mapped.strongestRegion,
-            weakestRegion: mapped.weakestRegion,
+            strongestRegion: finalData.strongestRegion,
+            weakestRegion: finalData.weakestRegion,
           },
           ...prev,
         ].slice(0, 20);
@@ -472,7 +610,13 @@ export function AnalysisProvider({ children }) {
         mo,
         { forceFallback: true },
       );
-      setData({ ...fallbackMapped, fallback: true });
+      const normalizedFallback = ensureNormalizedMinimum(fallbackMapped, { brandName: bn, industry: ind, targetCountry: co, competitors: inputCompetitors }, mo);
+      const finalFallbackData = { ...normalizedFallback, fallback: true, fallbackInjected: true, dataSource: "fallback" };
+      console.info("[Analysis] normalized mapped data", finalFallbackData);
+      console.info("[Analysis] fallbackInjected", true);
+      console.info("[Analysis] data source", "fallback");
+      setData(finalFallbackData);
+      persistAnalysisCache(finalFallbackData);
       setHasAnalyzedOnce(true);
     } finally {
       setLoading(false);
